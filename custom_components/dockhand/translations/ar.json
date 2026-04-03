@@ -1,0 +1,124 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "الاتصال بـ Dockhand",
+        "description": "أدخل بيانات الاتصال بنسخة Dockhand الخاصة بك.",
+        "data": {
+          "url": "عنوان URL",
+          "username": "اسم المستخدم (اختياري)",
+          "password": "كلمة المرور (اختياري)",
+          "verify_ssl": "التحقق من شهادة SSL"
+        },
+        "data_description": {
+          "url": "عنوان URL لنسخة Dockhand، مثال: http://192.168.1.100:3000",
+          "username": "مطلوب فقط إذا كانت المصادقة مفعّلة",
+          "password": "مطلوب فقط إذا كانت المصادقة مفعّلة"
+        }
+      },
+      "environments": {
+        "title": "اختر البيئات",
+        "description": "اختر بيئات Docker التي تريد مراقبتها (تم العثور على {env_count}).",
+        "data": {
+          "environments": "البيئات"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "فشل الاتصال بـ Dockhand",
+      "invalid_auth": "فشلت المصادقة",
+      "unknown": "خطأ غير معروف"
+    },
+    "abort": {
+      "already_configured": "نسخة Dockhand مُهيَّأة بالفعل"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "خيارات Dockhand",
+        "data": {
+          "scan_interval": "فترة التحديث (بالثواني)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "container_state": {
+        "name": "الحالة"
+      },
+      "container_image": {
+        "name": "الصورة"
+      },
+      "container_image_tag": {
+        "name": "إصدار الصورة"
+      },
+      "container_health": {
+        "name": "الصحة"
+      },
+      "cpu_percent": {
+        "name": "المعالج"
+      },
+      "memory_usage": {
+        "name": "استخدام الذاكرة"
+      },
+      "memory_percent": {
+        "name": "الذاكرة"
+      },
+      "network_rx": {
+        "name": "استقبال الشبكة"
+      },
+      "network_tx": {
+        "name": "إرسال الشبكة"
+      },
+      "block_read": {
+        "name": "قراءة القرص"
+      },
+      "block_write": {
+        "name": "كتابة القرص"
+      },
+      "container_count": {
+        "name": "الحاويات"
+      },
+      "running_count": {
+        "name": "الحاويات قيد التشغيل"
+      },
+      "stopped_count": {
+        "name": "الحاويات المتوقفة"
+      },
+      "stack_status": {
+        "name": "الحالة"
+      },
+      "stack_container_count": {
+        "name": "الحاويات"
+      },
+      "stack_running_count": {
+        "name": "الحاويات قيد التشغيل"
+      },
+      "stack_stopped_count": {
+        "name": "الحاويات المتوقفة"
+      }
+    },
+    "button": {
+      "start": {
+        "name": "تشغيل"
+      },
+      "stop": {
+        "name": "إيقاف"
+      },
+      "pause": {
+        "name": "إيقاف مؤقت"
+      },
+      "unpause": {
+        "name": "استئناف"
+      },
+      "restart": {
+        "name": "إعادة تشغيل"
+      },
+      "update": {
+        "name": "تحديث الصورة"
+      }
+    }
+  }
+}

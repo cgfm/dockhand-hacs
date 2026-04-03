@@ -1,0 +1,124 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connexion à Dockhand",
+        "description": "Entrez les informations de connexion de votre instance Dockhand.",
+        "data": {
+          "url": "URL",
+          "username": "Nom d'utilisateur (optionnel)",
+          "password": "Mot de passe (optionnel)",
+          "verify_ssl": "Vérifier le certificat SSL"
+        },
+        "data_description": {
+          "url": "L'URL de votre instance Dockhand, ex. http://192.168.1.100:3000",
+          "username": "Requis uniquement si l'authentification est activée",
+          "password": "Requis uniquement si l'authentification est activée"
+        }
+      },
+      "environments": {
+        "title": "Sélectionner les environnements",
+        "description": "Choisissez les environnements Docker à surveiller ({env_count} trouvés).",
+        "data": {
+          "environments": "Environnements"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter à Dockhand",
+      "invalid_auth": "Échec de l'authentification",
+      "unknown": "Erreur inconnue"
+    },
+    "abort": {
+      "already_configured": "L'instance Dockhand est déjà configurée"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options Dockhand",
+        "data": {
+          "scan_interval": "Intervalle de mise à jour (secondes)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "container_state": {
+        "name": "État"
+      },
+      "container_image": {
+        "name": "Image"
+      },
+      "container_image_tag": {
+        "name": "Version de l'image"
+      },
+      "container_health": {
+        "name": "Santé"
+      },
+      "cpu_percent": {
+        "name": "CPU"
+      },
+      "memory_usage": {
+        "name": "Utilisation mémoire"
+      },
+      "memory_percent": {
+        "name": "Mémoire"
+      },
+      "network_rx": {
+        "name": "Réseau RX"
+      },
+      "network_tx": {
+        "name": "Réseau TX"
+      },
+      "block_read": {
+        "name": "Lecture disque"
+      },
+      "block_write": {
+        "name": "Écriture disque"
+      },
+      "container_count": {
+        "name": "Conteneurs"
+      },
+      "running_count": {
+        "name": "Conteneurs en cours"
+      },
+      "stopped_count": {
+        "name": "Conteneurs arrêtés"
+      },
+      "stack_status": {
+        "name": "État"
+      },
+      "stack_container_count": {
+        "name": "Conteneurs"
+      },
+      "stack_running_count": {
+        "name": "Conteneurs en cours"
+      },
+      "stack_stopped_count": {
+        "name": "Conteneurs arrêtés"
+      }
+    },
+    "button": {
+      "start": {
+        "name": "Démarrer"
+      },
+      "stop": {
+        "name": "Arrêter"
+      },
+      "pause": {
+        "name": "Mettre en pause"
+      },
+      "unpause": {
+        "name": "Reprendre"
+      },
+      "restart": {
+        "name": "Redémarrer"
+      },
+      "update": {
+        "name": "Mettre à jour l'image"
+      }
+    }
+  }
+}

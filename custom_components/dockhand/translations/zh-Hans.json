@@ -1,0 +1,124 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "连接到 Dockhand",
+        "description": "输入您的 Dockhand 实例的连接信息。",
+        "data": {
+          "url": "URL",
+          "username": "用户名（可选）",
+          "password": "密码（可选）",
+          "verify_ssl": "验证 SSL 证书"
+        },
+        "data_description": {
+          "url": "您的 Dockhand 实例的 URL，例如 http://192.168.1.100:3000",
+          "username": "仅在启用身份验证时需要",
+          "password": "仅在启用身份验证时需要"
+        }
+      },
+      "environments": {
+        "title": "选择环境",
+        "description": "选择要监控的 Docker 环境（已找到 {env_count} 个）。",
+        "data": {
+          "environments": "环境"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "连接 Dockhand 失败",
+      "invalid_auth": "身份验证失败",
+      "unknown": "未知错误"
+    },
+    "abort": {
+      "already_configured": "Dockhand 实例已配置"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Dockhand 选项",
+        "data": {
+          "scan_interval": "更新间隔（秒）"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "container_state": {
+        "name": "状态"
+      },
+      "container_image": {
+        "name": "镜像"
+      },
+      "container_image_tag": {
+        "name": "镜像版本"
+      },
+      "container_health": {
+        "name": "健康状态"
+      },
+      "cpu_percent": {
+        "name": "CPU"
+      },
+      "memory_usage": {
+        "name": "内存用量"
+      },
+      "memory_percent": {
+        "name": "内存"
+      },
+      "network_rx": {
+        "name": "网络接收"
+      },
+      "network_tx": {
+        "name": "网络发送"
+      },
+      "block_read": {
+        "name": "磁盘读取"
+      },
+      "block_write": {
+        "name": "磁盘写入"
+      },
+      "container_count": {
+        "name": "容器数"
+      },
+      "running_count": {
+        "name": "运行中容器"
+      },
+      "stopped_count": {
+        "name": "已停止容器"
+      },
+      "stack_status": {
+        "name": "状态"
+      },
+      "stack_container_count": {
+        "name": "容器数"
+      },
+      "stack_running_count": {
+        "name": "运行中容器"
+      },
+      "stack_stopped_count": {
+        "name": "已停止容器"
+      }
+    },
+    "button": {
+      "start": {
+        "name": "启动"
+      },
+      "stop": {
+        "name": "停止"
+      },
+      "pause": {
+        "name": "暂停"
+      },
+      "unpause": {
+        "name": "恢复"
+      },
+      "restart": {
+        "name": "重启"
+      },
+      "update": {
+        "name": "更新镜像"
+      }
+    }
+  }
+}

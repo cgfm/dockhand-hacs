@@ -1,0 +1,124 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Conectar a Dockhand",
+        "description": "Introduce los datos de conexión de tu instancia de Dockhand.",
+        "data": {
+          "url": "URL",
+          "username": "Usuario (opcional)",
+          "password": "Contraseña (opcional)",
+          "verify_ssl": "Verificar certificado SSL"
+        },
+        "data_description": {
+          "url": "La URL de tu instancia de Dockhand, p. ej. http://192.168.1.100:3000",
+          "username": "Solo necesario si la autenticación está activada",
+          "password": "Solo necesario si la autenticación está activada"
+        }
+      },
+      "environments": {
+        "title": "Seleccionar entornos",
+        "description": "Elige qué entornos Docker monitorizar ({env_count} encontrados).",
+        "data": {
+          "environments": "Entornos"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se pudo conectar a Dockhand",
+      "invalid_auth": "Autenticación fallida",
+      "unknown": "Error desconocido"
+    },
+    "abort": {
+      "already_configured": "La instancia de Dockhand ya está configurada"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de Dockhand",
+        "data": {
+          "scan_interval": "Intervalo de actualización (segundos)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "container_state": {
+        "name": "Estado"
+      },
+      "container_image": {
+        "name": "Imagen"
+      },
+      "container_image_tag": {
+        "name": "Versión de imagen"
+      },
+      "container_health": {
+        "name": "Salud"
+      },
+      "cpu_percent": {
+        "name": "CPU"
+      },
+      "memory_usage": {
+        "name": "Uso de memoria"
+      },
+      "memory_percent": {
+        "name": "Memoria"
+      },
+      "network_rx": {
+        "name": "Red RX"
+      },
+      "network_tx": {
+        "name": "Red TX"
+      },
+      "block_read": {
+        "name": "Lectura de disco"
+      },
+      "block_write": {
+        "name": "Escritura de disco"
+      },
+      "container_count": {
+        "name": "Contenedores"
+      },
+      "running_count": {
+        "name": "Contenedores en ejecución"
+      },
+      "stopped_count": {
+        "name": "Contenedores detenidos"
+      },
+      "stack_status": {
+        "name": "Estado"
+      },
+      "stack_container_count": {
+        "name": "Contenedores"
+      },
+      "stack_running_count": {
+        "name": "Contenedores en ejecución"
+      },
+      "stack_stopped_count": {
+        "name": "Contenedores detenidos"
+      }
+    },
+    "button": {
+      "start": {
+        "name": "Iniciar"
+      },
+      "stop": {
+        "name": "Detener"
+      },
+      "pause": {
+        "name": "Pausar"
+      },
+      "unpause": {
+        "name": "Reanudar"
+      },
+      "restart": {
+        "name": "Reiniciar"
+      },
+      "update": {
+        "name": "Actualizar imagen"
+      }
+    }
+  }
+}

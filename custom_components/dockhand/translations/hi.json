@@ -1,0 +1,124 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dockhand से कनेक्ट करें",
+        "description": "अपने Dockhand इंस्टेंस की कनेक्शन जानकारी दर्ज करें।",
+        "data": {
+          "url": "URL",
+          "username": "उपयोगकर्ता नाम (वैकल्पिक)",
+          "password": "पासवर्ड (वैकल्पिक)",
+          "verify_ssl": "SSL प्रमाणपत्र सत्यापित करें"
+        },
+        "data_description": {
+          "url": "आपके Dockhand इंस्टेंस का URL, जैसे http://192.168.1.100:3000",
+          "username": "केवल तभी आवश्यक जब प्रमाणीकरण सक्षम हो",
+          "password": "केवल तभी आवश्यक जब प्रमाणीकरण सक्षम हो"
+        }
+      },
+      "environments": {
+        "title": "एनवायरनमेंट चुनें",
+        "description": "निगरानी के लिए Docker एनवायरनमेंट चुनें ({env_count} मिले)।",
+        "data": {
+          "environments": "एनवायरनमेंट"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Dockhand से कनेक्ट नहीं हो सका",
+      "invalid_auth": "प्रमाणीकरण विफल",
+      "unknown": "अज्ञात त्रुटि"
+    },
+    "abort": {
+      "already_configured": "Dockhand इंस्टेंस पहले से कॉन्फ़िगर है"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Dockhand विकल्प",
+        "data": {
+          "scan_interval": "अपडेट अंतराल (सेकंड)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "container_state": {
+        "name": "स्थिति"
+      },
+      "container_image": {
+        "name": "इमेज"
+      },
+      "container_image_tag": {
+        "name": "इमेज संस्करण"
+      },
+      "container_health": {
+        "name": "स्वास्थ्य"
+      },
+      "cpu_percent": {
+        "name": "CPU"
+      },
+      "memory_usage": {
+        "name": "मेमोरी उपयोग"
+      },
+      "memory_percent": {
+        "name": "मेमोरी"
+      },
+      "network_rx": {
+        "name": "नेटवर्क RX"
+      },
+      "network_tx": {
+        "name": "नेटवर्क TX"
+      },
+      "block_read": {
+        "name": "डिस्क पढ़ें"
+      },
+      "block_write": {
+        "name": "डिस्क लिखें"
+      },
+      "container_count": {
+        "name": "कंटेनर"
+      },
+      "running_count": {
+        "name": "चल रहे कंटेनर"
+      },
+      "stopped_count": {
+        "name": "रुके हुए कंटेनर"
+      },
+      "stack_status": {
+        "name": "स्थिति"
+      },
+      "stack_container_count": {
+        "name": "कंटेनर"
+      },
+      "stack_running_count": {
+        "name": "चल रहे कंटेनर"
+      },
+      "stack_stopped_count": {
+        "name": "रुके हुए कंटेनर"
+      }
+    },
+    "button": {
+      "start": {
+        "name": "शुरू करें"
+      },
+      "stop": {
+        "name": "रोकें"
+      },
+      "pause": {
+        "name": "रोकें (pause)"
+      },
+      "unpause": {
+        "name": "फिर शुरू करें"
+      },
+      "restart": {
+        "name": "पुनः आरंभ करें"
+      },
+      "update": {
+        "name": "इमेज अपडेट करें"
+      }
+    }
+  }
+}
