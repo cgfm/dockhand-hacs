@@ -3,10 +3,10 @@
   "name": "Dockhand",
   "codeowners": ["@cgfm"],
   "config_flow": true,
-  "documentation": "https://github.com/cgfm/ha-dockhand",
+  "documentation": "https://github.com/cgfm/dockhand-hacs",
   "integration_type": "hub",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/cgfm/ha-dockhand/issues",
+  "issue_tracker": "https://github.com/cgfm/dockhand-hacs/issues",
   "requirements": ["aiohttp>=3.8.0"],
-  "version": "1.1.0"
+  "version": "1.1.1"
 }
