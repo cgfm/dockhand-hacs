@@ -1,6 +1,17 @@
 # Dockhand Integration for Home Assistant
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![GitHub Release][releases-shield]][releases]
+[![HACS Custom][hacsbadge]][hacs]
+[![License][license-shield]](LICENSE)
+[![AI Assisted][ai-assisted-shield]][ai-assisted]
+
+[releases-shield]: https://img.shields.io/github/release/cgfm/dockhand-hacs.svg?style=for-the-badge
+[releases]: https://github.com/cgfm/dockhand-hacs/releases
+[license-shield]: https://img.shields.io/github/license/cgfm/dockhand-hacs.svg?style=for-the-badge
+[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
+[hacs]: https://github.com/hacs/integration
+[ai-assisted-shield]: https://img.shields.io/badge/AI-Assisted%20Development-blueviolet.svg?style=for-the-badge
+[ai-assisted]: #ai-assisted-development
 
 A Home Assistant custom integration to monitor and control Docker containers managed by [Dockhand](https://dockhand.pro/).
 
