@@ -26,6 +26,13 @@ KNOWN_CONTAINER_STATES = frozenset(
 )
 
 
+def _with_parent(device_info: DeviceInfo, via_device_id: Any) -> DeviceInfo:
+    """Attach a parent only when Dockhand supplied a valid HA device ID."""
+    if isinstance(via_device_id, str):
+        device_info["via_device_id"] = via_device_id
+    return device_info
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -108,13 +115,15 @@ class DockhandContainerRunningSensor(
         self._env_id = container_info.get("environment_id")
 
         self._attr_unique_id = entity_unique_id(unique_key, "running")
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, unique_key)},
-            name=f"{self._container_name}",
-            manufacturer="Dockhand",
-            model="Docker Container",
-            sw_version=container_info.get("image", ""),
-            via_device_id=container_info.get("via_device_id"),
+        self._attr_device_info = _with_parent(
+            DeviceInfo(
+                identifiers={(DOMAIN, unique_key)},
+                name=f"{self._container_name}",
+                manufacturer="Dockhand",
+                model="Docker Container",
+                sw_version=container_info.get("image", ""),
+            ),
+            container_info.get("via_device_id"),
         )
 
     @property
@@ -172,12 +181,14 @@ class DockhandStackActiveSensor(
         self._env_id = stack_info.get("environment_id")
 
         self._attr_unique_id = entity_unique_id(stack_key, "active")
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, stack_key)},
-            name=self._stack_name,
-            manufacturer="Dockhand",
-            model="Docker Stack",
-            via_device_id=stack_info.get("via_device_id"),
+        self._attr_device_info = _with_parent(
+            DeviceInfo(
+                identifiers={(DOMAIN, stack_key)},
+                name=self._stack_name,
+                manufacturer="Dockhand",
+                model="Docker Stack",
+            ),
+            stack_info.get("via_device_id"),
         )
 
     @property
@@ -247,12 +258,14 @@ class DockhandStackHealthySensor(
         self._env_id = stack_info.get("environment_id")
 
         self._attr_unique_id = entity_unique_id(stack_key, "problem")
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, stack_key)},
-            name=self._stack_name,
-            manufacturer="Dockhand",
-            model="Docker Stack",
-            via_device_id=stack_info.get("via_device_id"),
+        self._attr_device_info = _with_parent(
+            DeviceInfo(
+                identifiers={(DOMAIN, stack_key)},
+                name=self._stack_name,
+                manufacturer="Dockhand",
+                model="Docker Stack",
+            ),
+            stack_info.get("via_device_id"),
         )
 
     @property

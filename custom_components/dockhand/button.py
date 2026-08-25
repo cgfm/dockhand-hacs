@@ -69,6 +69,13 @@ BUTTON_DESCRIPTIONS: tuple[DockhandButtonEntityDescription, ...] = (
 )
 
 
+def _with_parent(device_info: DeviceInfo, via_device_id: Any) -> DeviceInfo:
+    """Attach a parent only when Dockhand supplied a valid HA device ID."""
+    if isinstance(via_device_id, str):
+        device_info["via_device_id"] = via_device_id
+    return device_info
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -140,13 +147,15 @@ class DockhandContainerButton(
         self._image = container_info.get("image", "")
 
         self._attr_unique_id = entity_unique_id(unique_key, description.key)
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, unique_key)},
-            name=self._container_name,
-            manufacturer="Dockhand",
-            model="Docker Container",
-            sw_version=container_info.get("image", ""),
-            via_device_id=container_info.get("via_device_id"),
+        self._attr_device_info = _with_parent(
+            DeviceInfo(
+                identifiers={(DOMAIN, unique_key)},
+                name=self._container_name,
+                manufacturer="Dockhand",
+                model="Docker Container",
+                sw_version=container_info.get("image", ""),
+            ),
+            container_info.get("via_device_id"),
         )
 
     @property

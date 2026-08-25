@@ -577,17 +577,19 @@ def async_migrate_registries(
                 config_entry,
                 environment_key(config_entry.entry_id, environment_id),
             )
-            candidates = _legacy_container_devices(
-                entity_registry,
-                device_registry,
-                config_entry,
-                environment_id,
-                str(container.get("name", "")),
-                runtime_id,
-                claimed_device_ids,
-            )
+            candidates: list[dr.DeviceEntry | None] = [
+                *_legacy_container_devices(
+                    entity_registry,
+                    device_registry,
+                    config_entry,
+                    environment_id,
+                    str(container.get("name", "")),
+                    runtime_id,
+                    claimed_device_ids,
+                )
+            ]
             if not candidates:
-                candidates = [None]
+                candidates.append(None)
 
             container_target: dr.DeviceEntry | None = None
             for old_device in candidates:

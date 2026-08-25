@@ -57,6 +57,13 @@ def _format_bytes(value: Any) -> float | None:
     return round(number / (1024 * 1024), 2)
 
 
+def _with_parent(device_info: DeviceInfo, via_device_id: Any) -> DeviceInfo:
+    """Attach a parent only when Dockhand supplied a valid HA device ID."""
+    if isinstance(via_device_id, str):
+        device_info["via_device_id"] = via_device_id
+    return device_info
+
+
 def _parse_image_tag(image: str) -> str:
     """Extract the tag/version portion from a Docker image reference.
 
@@ -364,13 +371,15 @@ class DockhandContainerSensor(
         self._env_name = container_info.get("environment_name", "")
 
         self._attr_unique_id = entity_unique_id(unique_key, description.key)
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, unique_key)},
-            name=f"{self._container_name}",
-            manufacturer="Dockhand",
-            model="Docker Container",
-            sw_version=container_info.get("image", ""),
-            via_device_id=container_info.get("via_device_id"),
+        self._attr_device_info = _with_parent(
+            DeviceInfo(
+                identifiers={(DOMAIN, unique_key)},
+                name=f"{self._container_name}",
+                manufacturer="Dockhand",
+                model="Docker Container",
+                sw_version=container_info.get("image", ""),
+            ),
+            container_info.get("via_device_id"),
         )
 
     @property
@@ -563,12 +572,14 @@ class DockhandStackSensor(
         self._env_name = stack_info.get("environment_name", "")
 
         self._attr_unique_id = entity_unique_id(stack_key, description.key)
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, stack_key)},
-            name=self._stack_name,
-            manufacturer="Dockhand",
-            model="Docker Stack",
-            via_device_id=stack_info.get("via_device_id"),
+        self._attr_device_info = _with_parent(
+            DeviceInfo(
+                identifiers={(DOMAIN, stack_key)},
+                name=self._stack_name,
+                manufacturer="Dockhand",
+                model="Docker Stack",
+            ),
+            stack_info.get("via_device_id"),
         )
 
     @property

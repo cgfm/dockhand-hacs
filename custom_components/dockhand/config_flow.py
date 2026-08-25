@@ -110,7 +110,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
-class DockhandConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
+class DockhandConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Dockhand."""
 
     VERSION = 1
