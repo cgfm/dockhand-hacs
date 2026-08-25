@@ -2,57 +2,88 @@
   "config": {
     "step": {
       "user": {
-        "title": "Dockhand verbinden",
-        "description": "Gib die Verbindungsdaten deiner Dockhand-Instanz ein.",
+        "title": "Connect to Dockhand",
+        "description": "Enter the connection details for your Dockhand instance.",
         "data": {
           "url": "URL",
-          "username": "Benutzername (optional)",
-          "password": "Passwort (optional)",
-          "verify_ssl": "SSL-Zertifikat überprüfen"
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "verify_ssl": "Verify SSL certificate"
         },
         "data_description": {
-          "url": "Die URL deiner Dockhand-Instanz, z.B. http://192.168.1.100:3000",
-          "username": "Nur nötig wenn Authentifizierung aktiviert ist",
-          "password": "Nur nötig wenn Authentifizierung aktiviert ist"
+          "url": "The URL of your Dockhand instance",
+          "username": "Only required if authentication is enabled",
+          "password": "Only required if authentication is enabled"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect Dockhand",
+        "description": "Enter valid credentials for this Dockhand instance.",
+        "data": {
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Dockhand",
+        "description": "Update the connection details. Leave the password empty to keep the stored password when the username is unchanged.",
+        "data": {
+          "url": "URL",
+          "username": "Username (optional)",
+          "password": "New password (optional)",
+          "verify_ssl": "Verify SSL certificate"
         }
       },
       "environments": {
-        "title": "Environments auswählen",
-        "description": "Wähle die Docker-Environments die überwacht werden sollen ({env_count} gefunden).",
+        "title": "Select environments",
+        "description": "Choose which Docker environments to monitor ({env_count} found).",
         "data": {
           "environments": "Environments"
         }
       }
     },
     "error": {
-      "cannot_connect": "Verbindung zu Dockhand fehlgeschlagen",
-      "invalid_auth": "Authentifizierung fehlgeschlagen",
-      "unknown": "Unbekannter Fehler"
+      "cannot_connect": "Failed to connect to Dockhand",
+      "invalid_auth": "Authentication failed",
+      "invalid_url": "Enter a valid HTTP or HTTPS URL without embedded credentials, query parameters, or a fragment",
+      "unknown": "Unknown error"
     },
     "abort": {
-      "already_configured": "Dockhand-Instanz ist bereits konfiguriert"
+      "already_configured": "Dockhand instance is already configured",
+      "reauth_failed": "Reauthentication could not be started",
+      "reauth_successful": "Dockhand was reauthenticated successfully"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Dockhand Optionen",
+        "title": "Dockhand Options",
         "data": {
-          "scan_interval": "Aktualisierungsintervall (Sekunden)"
+          "scan_interval": "Update interval (seconds)",
+          "environments": "Environments"
         }
       }
+    }
+  },
+  "exceptions": {
+    "container_not_available": {
+      "message": "Container {container} is not available"
+    },
+    "container_action_failed": {
+      "message": "Failed to {action} container {container}: {error}"
     }
   },
   "entity": {
     "sensor": {
       "container_state": {
-        "name": "Status"
+        "name": "State"
       },
       "container_image": {
         "name": "Image"
       },
       "container_image_tag": {
-        "name": "Image-Version"
+        "name": "Image version"
       },
       "container_health": {
         "name": "Health"
@@ -61,63 +92,74 @@
         "name": "CPU"
       },
       "memory_usage": {
-        "name": "Speicherverbrauch"
+        "name": "Memory usage"
       },
       "memory_percent": {
-        "name": "Speicher"
+        "name": "Memory"
       },
       "network_rx": {
-        "name": "Netzwerk RX"
+        "name": "Network RX"
       },
       "network_tx": {
-        "name": "Netzwerk TX"
+        "name": "Network TX"
       },
       "block_read": {
-        "name": "Festplatte lesen"
+        "name": "Disk read"
       },
       "block_write": {
-        "name": "Festplatte schreiben"
+        "name": "Disk write"
       },
       "container_count": {
-        "name": "Container"
+        "name": "Containers"
       },
       "running_count": {
-        "name": "Laufende Container"
+        "name": "Running containers"
       },
       "stopped_count": {
-        "name": "Gestoppte Container"
+        "name": "Stopped containers"
       },
       "stack_status": {
         "name": "Status"
       },
       "stack_container_count": {
-        "name": "Container"
+        "name": "Containers"
       },
       "stack_running_count": {
-        "name": "Laufende Container"
+        "name": "Running containers"
       },
       "stack_stopped_count": {
-        "name": "Gestoppte Container"
+        "name": "Stopped containers"
+      }
+    },
+    "binary_sensor": {
+      "container_running": {
+        "name": "Running"
+      },
+      "stack_active": {
+        "name": "Active"
+      },
+      "stack_problem": {
+        "name": "Problem"
       }
     },
     "button": {
       "start": {
-        "name": "Starten"
+        "name": "Start"
       },
       "stop": {
-        "name": "Stoppen"
+        "name": "Stop"
       },
       "pause": {
-        "name": "Pausieren"
+        "name": "Pause"
       },
       "unpause": {
-        "name": "Fortsetzen"
+        "name": "Unpause"
       },
       "restart": {
-        "name": "Neustarten"
+        "name": "Restart"
       },
       "update": {
-        "name": "Image aktualisieren"
+        "name": "Update image"
       }
     }
   }

@@ -4,6 +4,8 @@
 [![HACS Custom][hacsbadge]][hacs]
 [![License][license-shield]](LICENSE)
 [![AI Assisted][ai-assisted-shield]][ai-assisted]
+[![CI][ci-shield]][ci]
+[![Validation][validation-shield]][validation]
 
 [releases-shield]: https://img.shields.io/github/release/cgfm/dockhand-hacs.svg?style=for-the-badge
 [releases]: https://github.com/cgfm/dockhand-hacs/releases
@@ -12,181 +14,129 @@
 [hacs]: https://github.com/hacs/integration
 [ai-assisted-shield]: https://img.shields.io/badge/AI-Assisted%20Development-blueviolet.svg?style=for-the-badge
 [ai-assisted]: #ai-assisted-development
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/cgfm/dockhand-hacs/ci.yml?branch=main&style=for-the-badge&label=CI
+[ci]: https://github.com/cgfm/dockhand-hacs/actions/workflows/ci.yml
+[validation-shield]: https://img.shields.io/github/actions/workflow/status/cgfm/dockhand-hacs/validate.yml?branch=main&style=for-the-badge&label=HA%20validation
+[validation]: https://github.com/cgfm/dockhand-hacs/actions/workflows/validate.yml
 
-A Home Assistant custom integration to monitor and control Docker containers managed by [Dockhand](https://dockhand.pro/).
+A local-polling Home Assistant custom integration for monitoring and controlling Docker containers managed by [Dockhand](https://dockhand.pro/).
 
 [![Add to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=cgfm&repository=dockhand-hacs&category=integration)
 
----
+## Requirements
+
+- Home Assistant 2026.8.0 or newer
+- A Dockhand instance reachable from Home Assistant
+- A local Dockhand account when API authentication is enabled (OIDC/SSO login is not supported by the API client)
 
 ## Features
 
-### Device Hierarchy
+Each Dockhand environment is represented as a parent device. Stacks and containers are linked to their environment as child devices.
 
-Each Dockhand **environment** appears as a parent device. **Stacks** and **containers** are child devices of their environment.
+Container devices provide state, image/tag, health, CPU, memory, network and block-I/O sensors; a running binary sensor; and guarded start, stop, pause, unpause, restart and image-update buttons. Statistics are available only while Dockhand returns current stats for a running container. A container without a Docker healthcheck reports no health value rather than being treated as unhealthy.
 
-```
-Environment (e.g. "Home Server")
-├── Stack (e.g. "monitoring")
-│   └── [stack entities]
-└── Container (e.g. "nginx")
-    └── [container entities]
-```
+Environment devices provide total, running and stopped container counts. Stack devices provide status and container counts plus active and problem binary sensors.
 
-### Container Entities
+### Stable container identities
 
-| Entity | Type | Description |
-|--------|------|-------------|
-| State | Sensor | Container state (`running`, `exited`, `paused`, …) |
-| Image | Sensor | Full Docker image reference |
-| Image version | Sensor | Tag or digest extracted from the image reference |
-| Health | Sensor | Health check result (`healthy`, `unhealthy`, `starting`) |
-| CPU | Sensor | CPU usage in % |
-| Memory usage | Sensor | Memory consumption in MB |
-| Memory | Sensor | Memory usage in % |
-| Network RX | Sensor | Received data in MB (total increasing) |
-| Network TX | Sensor | Transmitted data in MB (total increasing) |
-| Disk read | Sensor | Block device read in MB (total increasing) |
-| Disk write | Sensor | Block device write in MB (total increasing) |
-| Running | Binary Sensor | `on` when the container is running |
-| Start | Button | Start the container |
-| Stop | Button | Stop the container |
-| Pause | Button | Pause the container |
-| Unpause | Button | Unpause the container |
-| Restart | Button | Restart the container |
-| Update | Button | Pull a fresh image and recreate the container |
+Version 1.2.0 no longer uses the mutable Docker runtime ID as the Home Assistant device identity. It resolves containers in this order:
 
-### Stack Entities
+1. the current Docker runtime ID for rename tracking;
+2. Docker Compose project, service and replica labels for recreate/rename tracking;
+3. the normalized container name for standalone container recreation.
 
-| Entity | Type | Description |
-|--------|------|-------------|
-| Status | Sensor | Stack status (`active` / `inactive`) |
-| Containers | Sensor | Total container count in the stack |
-| Running containers | Sensor | Count of running containers |
-| Stopped containers | Sensor | Count of stopped containers |
-| Active | Binary Sensor | `on` when the stack is active |
-| Problem | Binary Sensor | `on` when any container is not running or unhealthy |
-
-### Environment Entities
-
-| Entity | Type | Description |
-|--------|------|-------------|
-| Containers | Sensor | Total container count in the environment |
-| Running containers | Sensor | Count of running containers |
-| Stopped containers | Sensor | Count of stopped containers |
-
----
+The resulting logical identity is persisted per Home Assistant config entry and per Dockhand environment. Different Dockhand config entries and environments cannot share devices or entity unique IDs. Compose replicas are separated by their replica number, and a single snapshot cannot assign one identity to two containers.
 
 ## Installation
 
 ### HACS (recommended)
 
-Click the button above, or:
-
-1. Open HACS in Home Assistant
-2. Click **⋮** → **Custom repositories**
-3. Add `https://github.com/cgfm/dockhand-hacs` with category **Integration**
-4. Search for **Dockhand** and install
-5. Restart Home Assistant
+1. Open HACS and select **Custom repositories**.
+2. Add `https://github.com/cgfm/dockhand-hacs` as an **Integration**.
+3. Install **Dockhand**.
+4. Restart Home Assistant.
+5. Add **Dockhand** under **Settings → Devices & services**.
 
 ### Manual
 
-1. Copy the `custom_components/dockhand` folder into your HA `config/custom_components/` directory
-2. Restart Home Assistant
-
----
+Copy `custom_components/dockhand` to `<config>/custom_components/dockhand`, restart Home Assistant, then add the integration from **Settings → Devices & services**.
 
 ## Configuration
 
-1. Go to **Settings** → **Devices & Services** → **Add Integration**
-2. Search for **Dockhand**
-3. Enter:
-   - **URL**: The URL of your Dockhand instance (e.g. `http://192.168.1.100:3000`)
-   - **Username / Password**: Only required when Dockhand authentication is enabled
-   - **Verify SSL**: Enable when using HTTPS with a valid certificate
-4. Select which environments to monitor
-5. Done!
+Enter the Dockhand base URL, optional local username/password, and whether TLS certificates must be verified. TLS verification is enabled by default. Disable it only for a deliberately trusted self-signed installation; plain HTTP and disabled verification do not protect credentials on the network.
 
-### Options
+The setup flow lets you choose monitored environments. The options flow changes the 10–300 second polling interval and environment selection, then reloads the entry through Home Assistant's normal lifecycle. **Reconfigure** changes URL, authentication and TLS settings. Expired sessions automatically trigger one serialized login retry; persistent authentication failure starts Home Assistant reauthentication.
 
-After setup you can adjust the **update interval** (default: 30 seconds) via the integration options.
+## Upgrade from 1.1.0 to 1.2.0
 
----
+Version 1.2.0 includes a one-time, restart-safe device/entity registry migration. Create a full Home Assistant backup before installing it.
 
-## Authentication
+1. Create and download a full Home Assistant backup.
+2. Record important automations/dashboards that reference Dockhand entities.
+3. Install 1.2.0 in a test Home Assistant instance first when possible.
+4. Update the custom integration and restart Home Assistant once.
+5. Wait for the first successful Dockhand refresh.
+6. Verify the Dockhand integration, device hierarchy, original entity IDs, automations and dashboards before deleting the backup.
 
-| Scenario | What to do |
-|----------|-----------|
-| Auth disabled | Provide only the URL — no credentials needed |
-| Local auth | Enter username and password; the integration handles session cookies and auto re-login on 401 |
-| OIDC / SSO | Not supported via API — create a local Dockhand user for HA access |
+### What the migration does
 
----
+- It operates only on devices and entities owned by the config entry currently being set up.
+- It reuses the device/entity with the best existing entity ID: an unsuffixed ID wins, then the lowest numeric suffix (`_2` before `_3`, and so on).
+- After duplicate removal, a winning suffixed entity reclaims the original unsuffixed ID when that ID is free; unrelated conflicts are never replaced.
+- It changes registry unique IDs and device links while preserving the chosen entity ID and user customizations where possible.
+- It resumes safely after a partial prior migration and is idempotent on repeated setup/reload.
+- It creates environment devices before stack/container children and uses Home Assistant 2026.8 device IDs for parent links.
+- It never treats an empty or malformed required API response as permission to delete current resources.
+- Resources absent from successful API snapshots are retained for a persisted seven-day grace period. Cleanup is evaluated during later entry setup, not every poll.
+- An unknown unique-ID schema, a foreign entity reference or an ownership conflict keeps the legacy record and writes a warning instead of deleting data.
 
-## Example Automations
+Current duplicate devices for a container are consolidated during migration after their recognized entities have been transferred. Entities whose resources are temporarily absent remain registered and unavailable, so returning resources do not acquire new `_2`/`_3` IDs.
 
-### Notify when a container stops
+### Rollback
 
-```yaml
-automation:
-  - alias: "Container stopped notification"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.nginx_running
-        from: "on"
-        to: "off"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Container stopped"
-          message: "nginx is no longer running!"
-```
+The safe rollback is to restore the full pre-upgrade Home Assistant backup. Downgrading only the integration to 1.1.0 is not a registry rollback: 1.1.0 does not understand the new stable identifiers and can create Docker-ID-based duplicates again.
 
-### Alert on stack problem
+## Container actions
 
-```yaml
-automation:
-  - alias: "Stack problem alert"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.monitoring_problem
-        to: "on"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Stack issue"
-          message: "One or more containers in 'monitoring' need attention."
-```
+Buttons are available only when the current container state permits the corresponding operation. The update button asks Dockhand to pull the configured image and recreate the container. Test this operation on non-critical containers first and keep application-specific backups; Dockhand, Docker and the container image determine the actual recreate behavior.
 
----
+## Diagnostics and privacy
+
+Downloaded diagnostics redact the Dockhand URL, username and password. They contain aggregate counts and state/health totals only—not container, environment, stack or image names. Docker inspect is used only for newly observed runtime IDs, and only Compose labels are retained; environment variables, mounts and other inspect data are discarded.
 
 ## Troubleshooting
 
-| Symptom | Check |
-|---------|-------|
-| Cannot connect | Ensure the Dockhand URL is reachable from your HA host |
-| Authentication failed | Verify username/password; OIDC users need a local account |
-| No containers shown | Confirm environments are selected and Dockhand can reach the Docker daemon |
-| Stats unavailable | Stats are only fetched for running containers |
-| Health always unknown | Container has no `HEALTHCHECK` defined in its image |
+- **Cannot connect:** verify routing, reverse-proxy path, TLS trust and that Home Assistant can reach Dockhand.
+- **Authentication failed:** use a local Dockhand account and complete the reauthentication flow.
+- **No containers:** verify the selected environments and Dockhand's Docker connection.
+- **Stats unavailable:** Dockhand stats are requested only for running containers; individual stats failures do not discard the main snapshot.
+- **A legacy device remains after migration:** inspect the Home Assistant log for an ownership, unique-ID or foreign-entity warning. Do not edit `.storage`; report the sanitized warning and diagnostics in the [issue tracker](https://github.com/cgfm/dockhand-hacs/issues).
+- **A removed device remains:** this is expected during the seven-day safety grace period. A later integration reload/restart evaluates cleanup.
 
-Use **Settings → Devices & Services → Dockhand → Download Diagnostics** for debug info.
+## Development and validation
 
----
+The pinned test environment targets Home Assistant 2026.8.3 and Python 3.14. Run:
 
-## Requirements
+```bash
+python3.14 -m venv .venv
+. .venv/bin/activate
+python -m pip install --requirement requirements_test.txt
+ruff format --check custom_components tests
+ruff check custom_components tests
+mypy custom_components/dockhand
+pytest --cov=custom_components.dockhand --cov-report=term-missing
+```
 
-- Home Assistant 2024.1.0 or newer
-- Dockhand instance accessible from the HA host
-- Python 3.12+ (bundled with modern HA)
-
----
+CI also runs official hassfest and HACS validation. Release publication is manual: the `Publish release` workflow accepts an existing `vMAJOR.MINOR.PATCH` tag, validates it against the manifest and uses the `release` environment. Configure required reviewers for that environment before its first use.
 
 ## License
 
-MIT
+[MIT](LICENSE)
+
+## AI-assisted development
+
+AI tools assisted with parts of implementation, review, testing and documentation. Maintainer review, reproducible automated validation and release approval remain required.
 
 ## Credits
 
-Built by [@cgfm](https://github.com/cgfm) for the Home Assistant community.  
-Dockhand is created by [Finsys](https://github.com/Finsys/dockhand).
+Built by [@cgfm](https://github.com/cgfm) for the Home Assistant community. Dockhand is created by [Finsys](https://github.com/Finsys/dockhand).

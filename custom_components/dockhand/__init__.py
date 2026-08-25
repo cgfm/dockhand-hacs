@@ -2,25 +2,36 @@
 
 from __future__ import annotations
 
-import logging
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.device_registry import DeviceEntry
 
-from .api import DockhandApiClient
+from .api import (
+    DockhandApiClient,
+    DockhandApiError,
+    DockhandAuthError,
+    DockhandConnectionError,
+)
 from .const import (
-    DOMAIN,
+    CONF_PASSWORD,
     CONF_URL,
     CONF_USERNAME,
-    CONF_PASSWORD,
     CONF_VERIFY_SSL,
     DEFAULT_VERIFY_SSL,
+    DOMAIN,
 )
-from .coordinator import DockhandDataUpdateCoordinator
-
-_LOGGER = logging.getLogger(__name__)
+from .coordinator import (
+    DockhandDataUpdateCoordinator,
+    async_remove_identity_store,
+)
+from .registry import (
+    async_migrate_registries,
+    async_sync_registry,
+    current_resource_identifiers,
+)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON]
 
@@ -44,17 +55,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: DockhandConfigEntry) -> 
         session=session,
     )
 
-    # Authenticate on setup
-    await client.authenticate()
+    try:
+        await client.authenticate()
+    except DockhandAuthError as err:
+        raise ConfigEntryAuthFailed(
+            f"Authentication with Dockhand failed: {err}"
+        ) from err
+    except (DockhandConnectionError, DockhandApiError) as err:
+        raise ConfigEntryNotReady(f"Cannot connect to Dockhand: {err}") from err
 
     coordinator = DockhandDataUpdateCoordinator(hass, client, entry)
     await coordinator.async_config_entry_first_refresh()
 
+    async_migrate_registries(hass, entry, coordinator)
+    await coordinator.async_save_identity_state()
     entry.runtime_data = coordinator
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    @callback
+    def _async_sync_registry() -> None:
+        # This listener is registered before platform listeners so parent devices
+        # exist before newly discovered child entities provide via_device_id.
+        async_sync_registry(hass, entry, coordinator)
 
-    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    entry.async_on_unload(coordinator.async_add_listener(_async_sync_registry))
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 
@@ -64,8 +89,37 @@ async def async_unload_entry(hass: HomeAssistant, entry: DockhandConfigEntry) ->
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
-async def _async_update_listener(
-    hass: HomeAssistant, entry: DockhandConfigEntry
-) -> None:
-    """Handle options update."""
-    await hass.config_entries.async_reload(entry.entry_id)
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove persistent data belonging to a deleted config entry."""
+    await async_remove_identity_store(hass, entry.entry_id)
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> bool:
+    """Migrate config entry metadata away from a mutable URL unique ID."""
+    if entry.version == 1 and entry.minor_version < 2:
+        hass.config_entries.async_update_entry(
+            entry,
+            version=1,
+            minor_version=2,
+            unique_id=None,
+        )
+        return True
+    return entry.version == 1
+
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant,
+    config_entry: DockhandConfigEntry,
+    device_entry: DeviceEntry,
+) -> bool:
+    """Allow removal only when Dockhand no longer supplies the device."""
+    current_identifiers = current_resource_identifiers(
+        config_entry, config_entry.runtime_data.data
+    )
+    return not any(
+        domain == DOMAIN and identifier in current_identifiers
+        for domain, identifier in device_entry.identifiers
+    )

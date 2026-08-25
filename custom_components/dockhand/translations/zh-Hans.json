@@ -11,9 +11,28 @@
           "verify_ssl": "验证 SSL 证书"
         },
         "data_description": {
-          "url": "您的 Dockhand 实例的 URL，例如 http://192.168.1.100:3000",
+          "url": "您的 Dockhand 实例的 URL",
           "username": "仅在启用身份验证时需要",
           "password": "仅在启用身份验证时需要"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect Dockhand",
+        "description": "Enter valid credentials for this Dockhand instance.",
+        "data": {
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Dockhand",
+        "description": "Update the connection details. Leave the password empty to keep the stored password when the username is unchanged.",
+        "data": {
+          "url": "URL",
+          "username": "Username (optional)",
+          "password": "New password (optional)",
+          "verify_ssl": "Verify SSL certificate"
         }
       },
       "environments": {
@@ -27,10 +46,13 @@
     "error": {
       "cannot_connect": "连接 Dockhand 失败",
       "invalid_auth": "身份验证失败",
+      "invalid_url": "Enter a valid HTTP or HTTPS URL without embedded credentials, query parameters, or a fragment",
       "unknown": "未知错误"
     },
     "abort": {
-      "already_configured": "Dockhand 实例已配置"
+      "already_configured": "Dockhand 实例已配置",
+      "reauth_failed": "Reauthentication could not be started",
+      "reauth_successful": "Dockhand was reauthenticated successfully"
     }
   },
   "options": {
@@ -38,9 +60,18 @@
       "init": {
         "title": "Dockhand 选项",
         "data": {
-          "scan_interval": "更新间隔（秒）"
+          "scan_interval": "更新间隔（秒）",
+          "environments": "Environments"
         }
       }
+    }
+  },
+  "exceptions": {
+    "container_not_available": {
+      "message": "Container {container} is not available"
+    },
+    "container_action_failed": {
+      "message": "Failed to {action} container {container}: {error}"
     }
   },
   "entity": {
@@ -98,6 +129,17 @@
       },
       "stack_stopped_count": {
         "name": "已停止容器"
+      }
+    },
+    "binary_sensor": {
+      "container_running": {
+        "name": "Running"
+      },
+      "stack_active": {
+        "name": "Active"
+      },
+      "stack_problem": {
+        "name": "Problem"
       }
     },
     "button": {

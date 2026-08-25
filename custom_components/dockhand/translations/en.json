@@ -11,9 +11,28 @@
           "verify_ssl": "Verify SSL certificate"
         },
         "data_description": {
-          "url": "The URL of your Dockhand instance, e.g. http://192.168.1.100:3000",
+          "url": "The URL of your Dockhand instance",
           "username": "Only required if authentication is enabled",
           "password": "Only required if authentication is enabled"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect Dockhand",
+        "description": "Enter valid credentials for this Dockhand instance.",
+        "data": {
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Dockhand",
+        "description": "Update the connection details. Leave the password empty to keep the stored password when the username is unchanged.",
+        "data": {
+          "url": "URL",
+          "username": "Username (optional)",
+          "password": "New password (optional)",
+          "verify_ssl": "Verify SSL certificate"
         }
       },
       "environments": {
@@ -27,10 +46,13 @@
     "error": {
       "cannot_connect": "Failed to connect to Dockhand",
       "invalid_auth": "Authentication failed",
+      "invalid_url": "Enter a valid HTTP or HTTPS URL without embedded credentials, query parameters, or a fragment",
       "unknown": "Unknown error"
     },
     "abort": {
-      "already_configured": "Dockhand instance is already configured"
+      "already_configured": "Dockhand instance is already configured",
+      "reauth_failed": "Reauthentication could not be started",
+      "reauth_successful": "Dockhand was reauthenticated successfully"
     }
   },
   "options": {
@@ -38,9 +60,18 @@
       "init": {
         "title": "Dockhand Options",
         "data": {
-          "scan_interval": "Update interval (seconds)"
+          "scan_interval": "Update interval (seconds)",
+          "environments": "Environments"
         }
       }
+    }
+  },
+  "exceptions": {
+    "container_not_available": {
+      "message": "Container {container} is not available"
+    },
+    "container_action_failed": {
+      "message": "Failed to {action} container {container}: {error}"
     }
   },
   "entity": {
@@ -98,6 +129,17 @@
       },
       "stack_stopped_count": {
         "name": "Stopped containers"
+      }
+    },
+    "binary_sensor": {
+      "container_running": {
+        "name": "Running"
+      },
+      "stack_active": {
+        "name": "Active"
+      },
+      "stack_problem": {
+        "name": "Problem"
       }
     },
     "button": {

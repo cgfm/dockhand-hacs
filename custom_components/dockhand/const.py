@@ -1,11 +1,12 @@
 """Constants for the Dockhand integration."""
 
-from datetime import timedelta
-
 DOMAIN = "dockhand"
-DEFAULT_PORT = 3000
 DEFAULT_SCAN_INTERVAL = 30
-DEFAULT_VERIFY_SSL = False
+DEFAULT_VERIFY_SSL = True
+API_TIMEOUT_SECONDS = 20
+API_ACTION_TIMEOUT_SECONDS = 5 * 60
+MAX_PARALLEL_REQUESTS = 10
+MISSING_RESOURCE_GRACE_SECONDS = 7 * 24 * 60 * 60
 
 CONF_URL = "url"
 CONF_USERNAME = "username"

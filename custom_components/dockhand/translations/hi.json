@@ -11,9 +11,28 @@
           "verify_ssl": "SSL प्रमाणपत्र सत्यापित करें"
         },
         "data_description": {
-          "url": "आपके Dockhand इंस्टेंस का URL, जैसे http://192.168.1.100:3000",
+          "url": "आपके Dockhand इंस्टेंस का URL",
           "username": "केवल तभी आवश्यक जब प्रमाणीकरण सक्षम हो",
           "password": "केवल तभी आवश्यक जब प्रमाणीकरण सक्षम हो"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect Dockhand",
+        "description": "Enter valid credentials for this Dockhand instance.",
+        "data": {
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Dockhand",
+        "description": "Update the connection details. Leave the password empty to keep the stored password when the username is unchanged.",
+        "data": {
+          "url": "URL",
+          "username": "Username (optional)",
+          "password": "New password (optional)",
+          "verify_ssl": "Verify SSL certificate"
         }
       },
       "environments": {
@@ -27,10 +46,13 @@
     "error": {
       "cannot_connect": "Dockhand से कनेक्ट नहीं हो सका",
       "invalid_auth": "प्रमाणीकरण विफल",
+      "invalid_url": "Enter a valid HTTP or HTTPS URL without embedded credentials, query parameters, or a fragment",
       "unknown": "अज्ञात त्रुटि"
     },
     "abort": {
-      "already_configured": "Dockhand इंस्टेंस पहले से कॉन्फ़िगर है"
+      "already_configured": "Dockhand इंस्टेंस पहले से कॉन्फ़िगर है",
+      "reauth_failed": "Reauthentication could not be started",
+      "reauth_successful": "Dockhand was reauthenticated successfully"
     }
   },
   "options": {
@@ -38,9 +60,18 @@
       "init": {
         "title": "Dockhand विकल्प",
         "data": {
-          "scan_interval": "अपडेट अंतराल (सेकंड)"
+          "scan_interval": "अपडेट अंतराल (सेकंड)",
+          "environments": "Environments"
         }
       }
+    }
+  },
+  "exceptions": {
+    "container_not_available": {
+      "message": "Container {container} is not available"
+    },
+    "container_action_failed": {
+      "message": "Failed to {action} container {container}: {error}"
     }
   },
   "entity": {
@@ -98,6 +129,17 @@
       },
       "stack_stopped_count": {
         "name": "रुके हुए कंटेनर"
+      }
+    },
+    "binary_sensor": {
+      "container_running": {
+        "name": "Running"
+      },
+      "stack_active": {
+        "name": "Active"
+      },
+      "stack_problem": {
+        "name": "Problem"
       }
     },
     "button": {

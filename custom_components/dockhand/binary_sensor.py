@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -17,8 +16,14 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import DockhandDataUpdateCoordinator
+from .identity import (
+    entity_unique_id,
+    reconcile_resource_keys,
+)
 
-_LOGGER = logging.getLogger(__name__)
+KNOWN_CONTAINER_STATES = frozenset(
+    {"created", "dead", "exited", "paused", "removing", "restarting", "running"}
+)
 
 
 async def async_setup_entry(
@@ -51,24 +56,34 @@ async def async_setup_entry(
         new_entities: list[BinarySensorEntity] = []
 
         current_container_keys = set(coordinator.data.get("containers", {}).keys())
-        for unique_key in current_container_keys - known_container_keys:
+        new_container_keys = reconcile_resource_keys(
+            current_container_keys,
+            known_container_keys,
+        )
+        for unique_key in new_container_keys:
             container_info = coordinator.data["containers"][unique_key]
             new_entities.append(
                 DockhandContainerRunningSensor(coordinator, unique_key, container_info)
             )
-        known_container_keys = current_container_keys
 
         current_stack_keys = set(coordinator.data.get("stacks", {}).keys())
-        for stack_key in current_stack_keys - known_stack_keys:
+        new_stack_keys = reconcile_resource_keys(
+            current_stack_keys,
+            known_stack_keys,
+        )
+        for stack_key in new_stack_keys:
             stack_info = coordinator.data["stacks"][stack_key]
-            new_entities.append(DockhandStackActiveSensor(coordinator, stack_key, stack_info))
-            new_entities.append(DockhandStackHealthySensor(coordinator, stack_key, stack_info))
-        known_stack_keys = current_stack_keys
+            new_entities.append(
+                DockhandStackActiveSensor(coordinator, stack_key, stack_info)
+            )
+            new_entities.append(
+                DockhandStackHealthySensor(coordinator, stack_key, stack_info)
+            )
 
         if new_entities:
             async_add_entities(new_entities)
 
-    coordinator.async_add_listener(_async_check_new_entities)
+    entry.async_on_unload(coordinator.async_add_listener(_async_check_new_entities))
 
 
 class DockhandContainerRunningSensor(
@@ -78,7 +93,7 @@ class DockhandContainerRunningSensor(
 
     _attr_has_entity_name = True
     _attr_device_class = BinarySensorDeviceClass.RUNNING
-    _attr_name = "Running"
+    _attr_translation_key = "container_running"
 
     def __init__(
         self,
@@ -92,14 +107,14 @@ class DockhandContainerRunningSensor(
         self._container_name = container_info.get("name", "unknown").lstrip("/")
         self._env_id = container_info.get("environment_id")
 
-        self._attr_unique_id = f"{DOMAIN}_{unique_key}_running"
+        self._attr_unique_id = entity_unique_id(unique_key, "running")
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, unique_key)},
             name=f"{self._container_name}",
             manufacturer="Dockhand",
             model="Docker Container",
             sw_version=container_info.get("image", ""),
-            via_device=(DOMAIN, f"env_{self._env_id}"),
+            via_device_id=container_info.get("via_device_id"),
         )
 
     @property
@@ -116,7 +131,10 @@ class DockhandContainerRunningSensor(
         container = self.coordinator.data.get("containers", {}).get(self._unique_key)
         if not container:
             return None
-        return container.get("state") == "running"
+        state = str(container.get("state") or "").lower()
+        if state not in KNOWN_CONTAINER_STATES:
+            return None
+        return state == "running"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -137,7 +155,7 @@ class DockhandStackActiveSensor(
     """Binary sensor indicating whether a Docker stack is active."""
 
     _attr_has_entity_name = True
-    _attr_name = "Active"
+    _attr_translation_key = "stack_active"
     _attr_icon = "mdi:layers-triple"
 
     def __init__(
@@ -153,13 +171,13 @@ class DockhandStackActiveSensor(
         self._stack_name = stack_info.get("name", f"Stack {self._stack_id}")
         self._env_id = stack_info.get("environment_id")
 
-        self._attr_unique_id = f"{DOMAIN}_stack_{stack_key}_active"
+        self._attr_unique_id = entity_unique_id(stack_key, "active")
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"stack_{stack_key}")},
+            identifiers={(DOMAIN, stack_key)},
             name=self._stack_name,
             manufacturer="Dockhand",
             model="Docker Stack",
-            via_device=(DOMAIN, f"env_{self._env_id}"),
+            via_device_id=stack_info.get("via_device_id"),
         )
 
     @property
@@ -178,9 +196,15 @@ class DockhandStackActiveSensor(
             return None
         raw = stack.get("status")
         if isinstance(raw, int):
-            return raw == 1
+            if raw in (1, 2):
+                return raw == 1
+            return None
         if isinstance(raw, str):
-            return raw.lower() in ("active", "running", "up")
+            normalized = raw.lower()
+            if normalized in ("active", "running", "up"):
+                return True
+            if normalized in ("inactive", "stopped", "down"):
+                return False
         return None
 
     @property
@@ -207,7 +231,7 @@ class DockhandStackHealthySensor(
 
     _attr_has_entity_name = True
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
-    _attr_name = "Problem"
+    _attr_translation_key = "stack_problem"
 
     def __init__(
         self,
@@ -222,13 +246,13 @@ class DockhandStackHealthySensor(
         self._stack_name = stack_info.get("name", f"Stack {self._stack_id}")
         self._env_id = stack_info.get("environment_id")
 
-        self._attr_unique_id = f"{DOMAIN}_stack_{stack_key}_problem"
+        self._attr_unique_id = entity_unique_id(stack_key, "problem")
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"stack_{stack_key}")},
+            identifiers={(DOMAIN, stack_key)},
             name=self._stack_name,
             manufacturer="Dockhand",
             model="Docker Stack",
-            via_device=(DOMAIN, f"env_{self._env_id}"),
+            via_device_id=stack_info.get("via_device_id"),
         )
 
     @property
@@ -245,7 +269,12 @@ class DockhandStackHealthySensor(
         stack = self.coordinator.data.get("stacks", {}).get(self._stack_key)
         if not stack:
             return None
-        for container in stack.get("containerDetails", []):
+        details = stack.get("containerDetails")
+        if not isinstance(details, list):
+            return None
+        for container in details:
+            if not isinstance(container, dict):
+                continue
             if container.get("state") != "running":
                 return True
             if container.get("health") == "unhealthy":
@@ -258,9 +287,15 @@ class DockhandStackHealthySensor(
         stack = self.coordinator.data.get("stacks", {}).get(self._stack_key)
         if not stack:
             return {}
+        raw_details = stack.get("containerDetails", [])
+        details = (
+            [item for item in raw_details if isinstance(item, dict)]
+            if isinstance(raw_details, list)
+            else []
+        )
         problems = [
             container.get("name", "")
-            for container in stack.get("containerDetails", [])
+            for container in details
             if container.get("state") != "running"
             or container.get("health") == "unhealthy"
         ]

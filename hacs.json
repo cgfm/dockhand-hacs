@@ -1,6 +1,4 @@
 {
   "name": "Dockhand",
-  "render_readme": true,
-  "domains": ["sensor", "binary_sensor", "switch"],
-  "homeassistant": "2024.1.0"
+  "homeassistant": "2026.8.0"
 }

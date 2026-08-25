@@ -11,9 +11,28 @@
           "verify_ssl": "التحقق من شهادة SSL"
         },
         "data_description": {
-          "url": "عنوان URL لنسخة Dockhand، مثال: http://192.168.1.100:3000",
+          "url": "عنوان URL لنسخة Dockhand",
           "username": "مطلوب فقط إذا كانت المصادقة مفعّلة",
           "password": "مطلوب فقط إذا كانت المصادقة مفعّلة"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect Dockhand",
+        "description": "Enter valid credentials for this Dockhand instance.",
+        "data": {
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Dockhand",
+        "description": "Update the connection details. Leave the password empty to keep the stored password when the username is unchanged.",
+        "data": {
+          "url": "URL",
+          "username": "Username (optional)",
+          "password": "New password (optional)",
+          "verify_ssl": "Verify SSL certificate"
         }
       },
       "environments": {
@@ -27,10 +46,13 @@
     "error": {
       "cannot_connect": "فشل الاتصال بـ Dockhand",
       "invalid_auth": "فشلت المصادقة",
+      "invalid_url": "Enter a valid HTTP or HTTPS URL without embedded credentials, query parameters, or a fragment",
       "unknown": "خطأ غير معروف"
     },
     "abort": {
-      "already_configured": "نسخة Dockhand مُهيَّأة بالفعل"
+      "already_configured": "نسخة Dockhand مُهيَّأة بالفعل",
+      "reauth_failed": "Reauthentication could not be started",
+      "reauth_successful": "Dockhand was reauthenticated successfully"
     }
   },
   "options": {
@@ -38,9 +60,18 @@
       "init": {
         "title": "خيارات Dockhand",
         "data": {
-          "scan_interval": "فترة التحديث (بالثواني)"
+          "scan_interval": "فترة التحديث (بالثواني)",
+          "environments": "Environments"
         }
       }
+    }
+  },
+  "exceptions": {
+    "container_not_available": {
+      "message": "Container {container} is not available"
+    },
+    "container_action_failed": {
+      "message": "Failed to {action} container {container}: {error}"
     }
   },
   "entity": {
@@ -98,6 +129,17 @@
       },
       "stack_stopped_count": {
         "name": "الحاويات المتوقفة"
+      }
+    },
+    "binary_sensor": {
+      "container_running": {
+        "name": "Running"
+      },
+      "stack_active": {
+        "name": "Active"
+      },
+      "stack_problem": {
+        "name": "Problem"
       }
     },
     "button": {

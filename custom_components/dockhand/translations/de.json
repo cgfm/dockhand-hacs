@@ -11,9 +11,28 @@
           "verify_ssl": "SSL-Zertifikat überprüfen"
         },
         "data_description": {
-          "url": "Die URL deiner Dockhand-Instanz, z.B. http://192.168.1.100:3000",
+          "url": "Die URL deiner Dockhand-Instanz",
           "username": "Nur nötig wenn Authentifizierung aktiviert ist",
           "password": "Nur nötig wenn Authentifizierung aktiviert ist"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Dockhand neu verbinden",
+        "description": "Gib gültige Zugangsdaten für diese Dockhand-Instanz ein.",
+        "data": {
+          "username": "Benutzername (optional)",
+          "password": "Passwort (optional)",
+          "verify_ssl": "SSL-Zertifikat überprüfen"
+        }
+      },
+      "reconfigure": {
+        "title": "Dockhand neu konfigurieren",
+        "description": "Aktualisiere die Verbindungsdaten. Bleibt der Benutzername unverändert, wird bei leerem Passwortfeld das gespeicherte Passwort beibehalten.",
+        "data": {
+          "url": "URL",
+          "username": "Benutzername (optional)",
+          "password": "Neues Passwort (optional)",
+          "verify_ssl": "SSL-Zertifikat überprüfen"
         }
       },
       "environments": {
@@ -27,10 +46,13 @@
     "error": {
       "cannot_connect": "Verbindung zu Dockhand fehlgeschlagen",
       "invalid_auth": "Authentifizierung fehlgeschlagen",
+      "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ohne eingebettete Zugangsdaten, Abfrageparameter oder Fragment ein",
       "unknown": "Unbekannter Fehler"
     },
     "abort": {
-      "already_configured": "Dockhand-Instanz ist bereits konfiguriert"
+      "already_configured": "Dockhand-Instanz ist bereits konfiguriert",
+      "reauth_failed": "Die erneute Authentifizierung konnte nicht gestartet werden",
+      "reauth_successful": "Dockhand wurde erfolgreich erneut authentifiziert"
     }
   },
   "options": {
@@ -38,9 +60,18 @@
       "init": {
         "title": "Dockhand Optionen",
         "data": {
-          "scan_interval": "Aktualisierungsintervall (Sekunden)"
+          "scan_interval": "Aktualisierungsintervall (Sekunden)",
+          "environments": "Environments"
         }
       }
+    }
+  },
+  "exceptions": {
+    "container_not_available": {
+      "message": "Container {container} ist nicht verfügbar"
+    },
+    "container_action_failed": {
+      "message": "Aktion {action} für Container {container} fehlgeschlagen: {error}"
     }
   },
   "entity": {
@@ -98,6 +129,17 @@
       },
       "stack_stopped_count": {
         "name": "Gestoppte Container"
+      }
+    },
+    "binary_sensor": {
+      "container_running": {
+        "name": "Läuft"
+      },
+      "stack_active": {
+        "name": "Aktiv"
+      },
+      "stack_problem": {
+        "name": "Problem"
       }
     },
     "button": {

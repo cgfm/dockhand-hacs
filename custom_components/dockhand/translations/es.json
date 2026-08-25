@@ -11,9 +11,28 @@
           "verify_ssl": "Verificar certificado SSL"
         },
         "data_description": {
-          "url": "La URL de tu instancia de Dockhand, p. ej. http://192.168.1.100:3000",
+          "url": "La URL de tu instancia de Dockhand",
           "username": "Solo necesario si la autenticación está activada",
           "password": "Solo necesario si la autenticación está activada"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect Dockhand",
+        "description": "Enter valid credentials for this Dockhand instance.",
+        "data": {
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Dockhand",
+        "description": "Update the connection details. Leave the password empty to keep the stored password when the username is unchanged.",
+        "data": {
+          "url": "URL",
+          "username": "Username (optional)",
+          "password": "New password (optional)",
+          "verify_ssl": "Verify SSL certificate"
         }
       },
       "environments": {
@@ -27,10 +46,13 @@
     "error": {
       "cannot_connect": "No se pudo conectar a Dockhand",
       "invalid_auth": "Autenticación fallida",
+      "invalid_url": "Enter a valid HTTP or HTTPS URL without embedded credentials, query parameters, or a fragment",
       "unknown": "Error desconocido"
     },
     "abort": {
-      "already_configured": "La instancia de Dockhand ya está configurada"
+      "already_configured": "La instancia de Dockhand ya está configurada",
+      "reauth_failed": "Reauthentication could not be started",
+      "reauth_successful": "Dockhand was reauthenticated successfully"
     }
   },
   "options": {
@@ -38,9 +60,18 @@
       "init": {
         "title": "Opciones de Dockhand",
         "data": {
-          "scan_interval": "Intervalo de actualización (segundos)"
+          "scan_interval": "Intervalo de actualización (segundos)",
+          "environments": "Environments"
         }
       }
+    }
+  },
+  "exceptions": {
+    "container_not_available": {
+      "message": "Container {container} is not available"
+    },
+    "container_action_failed": {
+      "message": "Failed to {action} container {container}: {error}"
     }
   },
   "entity": {
@@ -98,6 +129,17 @@
       },
       "stack_stopped_count": {
         "name": "Contenedores detenidos"
+      }
+    },
+    "binary_sensor": {
+      "container_running": {
+        "name": "Running"
+      },
+      "stack_active": {
+        "name": "Active"
+      },
+      "stack_problem": {
+        "name": "Problem"
       }
     },
     "button": {

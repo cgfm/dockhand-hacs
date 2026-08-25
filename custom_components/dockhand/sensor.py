@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import logging
+import math
 import re
 from typing import Any
 
@@ -24,15 +24,37 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import DockhandDataUpdateCoordinator
+from .identity import (
+    entity_unique_id,
+    environment_key,
+    reconcile_resource_keys,
+)
 
-_LOGGER = logging.getLogger(__name__)
+KNOWN_CONTAINER_STATES = frozenset(
+    {"created", "dead", "exited", "paused", "removing", "restarting", "running"}
+)
+KNOWN_HEALTH_STATES = frozenset({"healthy", "starting", "unhealthy"})
+KNOWN_STACK_STATES = frozenset(
+    {"active", "down", "inactive", "running", "stopped", "up"}
+)
 
 
-def _format_bytes(value: float | None) -> float | None:
-    """Convert bytes to megabytes."""
-    if value is None:
+def _numeric(value: Any) -> float | None:
+    """Return a finite number from a Dockhand metric."""
+    if isinstance(value, bool) or value is None:
         return None
-    return round(value / (1024 * 1024), 2)
+    try:
+        number = float(value)
+    except TypeError, ValueError:
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _format_bytes(value: Any) -> float | None:
+    """Convert bytes to mebibytes."""
+    if (number := _numeric(value)) is None:
+        return None
+    return round(number / (1024 * 1024), 2)
 
 
 def _parse_image_tag(image: str) -> str:
@@ -49,7 +71,7 @@ def _parse_image_tag(image: str) -> str:
     if "@" in image:
         return image.split("@", 1)[1]
     if ":" in image:
-        name, tag = image.rsplit(":", 1)
+        _name, tag = image.rsplit(":", 1)
         # A tag cannot contain '/' — if it does we hit a registry:port case
         if "/" not in tag:
             return tag
@@ -78,7 +100,6 @@ def _parse_health(status: str) -> str | None:
     if "healthy" in inner:
         return "healthy"
     return None
-
 
 
 CONTAINER_SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
@@ -118,7 +139,7 @@ CONTAINER_SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="memory_usage",
         name="Memory usage",
-        native_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        native_unit_of_measurement=UnitOfInformation.MEBIBYTES,
         device_class=SensorDeviceClass.DATA_SIZE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:memory",
@@ -137,7 +158,7 @@ CONTAINER_SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="network_rx",
         name="Network RX",
-        native_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        native_unit_of_measurement=UnitOfInformation.MEBIBYTES,
         device_class=SensorDeviceClass.DATA_SIZE,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:download-network",
@@ -147,7 +168,7 @@ CONTAINER_SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="network_tx",
         name="Network TX",
-        native_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        native_unit_of_measurement=UnitOfInformation.MEBIBYTES,
         device_class=SensorDeviceClass.DATA_SIZE,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:upload-network",
@@ -157,7 +178,7 @@ CONTAINER_SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="block_read",
         name="Disk read",
-        native_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        native_unit_of_measurement=UnitOfInformation.MEBIBYTES,
         device_class=SensorDeviceClass.DATA_SIZE,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:harddisk",
@@ -167,7 +188,7 @@ CONTAINER_SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="block_write",
         name="Disk write",
-        native_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        native_unit_of_measurement=UnitOfInformation.MEBIBYTES,
         device_class=SensorDeviceClass.DATA_SIZE,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:harddisk",
@@ -264,37 +285,60 @@ async def async_setup_entry(
 
     async_add_entities(entities)
 
+    known_environment_keys: set[int] = set(
+        coordinator.data.get("environments", {}).keys()
+    )
     known_container_keys: set[str] = set(coordinator.data.get("containers", {}).keys())
     known_stack_keys: set[str] = set(coordinator.data.get("stacks", {}).keys())
 
     @callback
     def _async_check_new_entities() -> None:
-        """Check for new containers and stacks and add them."""
-        nonlocal known_container_keys, known_stack_keys
+        """Check for newly discovered resources and add their entities."""
+        nonlocal known_environment_keys, known_container_keys, known_stack_keys
         new_entities: list[SensorEntity] = []
 
+        current_environment_keys = set(coordinator.data.get("environments", {}).keys())
+        new_environment_keys = reconcile_resource_keys(
+            current_environment_keys,
+            known_environment_keys,
+        )
+        for env_id in new_environment_keys:
+            env_info = coordinator.data["environments"][env_id]
+            for desc in ENVIRONMENT_SENSOR_DESCRIPTIONS:
+                new_entities.append(
+                    DockhandEnvironmentSensor(coordinator, env_id, env_info, desc)
+                )
+
         current_container_keys = set(coordinator.data.get("containers", {}).keys())
-        for unique_key in current_container_keys - known_container_keys:
+        new_container_keys = reconcile_resource_keys(
+            current_container_keys,
+            known_container_keys,
+        )
+        for unique_key in new_container_keys:
             container_info = coordinator.data["containers"][unique_key]
             for desc in CONTAINER_SENSOR_DESCRIPTIONS:
                 new_entities.append(
-                    DockhandContainerSensor(coordinator, unique_key, container_info, desc)
+                    DockhandContainerSensor(
+                        coordinator, unique_key, container_info, desc
+                    )
                 )
-        known_container_keys = current_container_keys
 
         current_stack_keys = set(coordinator.data.get("stacks", {}).keys())
-        for stack_key in current_stack_keys - known_stack_keys:
+        new_stack_keys = reconcile_resource_keys(
+            current_stack_keys,
+            known_stack_keys,
+        )
+        for stack_key in new_stack_keys:
             stack_info = coordinator.data["stacks"][stack_key]
             for desc in STACK_SENSOR_DESCRIPTIONS:
                 new_entities.append(
                     DockhandStackSensor(coordinator, stack_key, stack_info, desc)
                 )
-        known_stack_keys = current_stack_keys
 
         if new_entities:
             async_add_entities(new_entities)
 
-    coordinator.async_add_listener(_async_check_new_entities)
+    entry.async_on_unload(coordinator.async_add_listener(_async_check_new_entities))
 
 
 class DockhandContainerSensor(
@@ -315,28 +359,40 @@ class DockhandContainerSensor(
         super().__init__(coordinator)
         self.entity_description = description
         self._unique_key = unique_key
-        self._container_id = container_info.get("id", "")
         self._container_name = container_info.get("name", "unknown").lstrip("/")
         self._env_id = container_info.get("environment_id")
         self._env_name = container_info.get("environment_name", "")
 
-        self._attr_unique_id = f"{DOMAIN}_{unique_key}_{description.key}"
+        self._attr_unique_id = entity_unique_id(unique_key, description.key)
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, unique_key)},
             name=f"{self._container_name}",
             manufacturer="Dockhand",
             model="Docker Container",
             sw_version=container_info.get("image", ""),
-            via_device=(DOMAIN, f"env_{self._env_id}"),
+            via_device_id=container_info.get("via_device_id"),
         )
 
     @property
     def available(self) -> bool:
         """Return True if entity is available."""
-        return (
+        available = (
             self.coordinator.last_update_success
             and self._unique_key in self.coordinator.data.get("containers", {})
         )
+        if not available:
+            return False
+        if self.entity_description.key in {
+            "cpu_percent",
+            "memory_usage",
+            "memory_percent",
+            "network_rx",
+            "network_tx",
+            "block_read",
+            "block_write",
+        }:
+            return self.native_value is not None
+        return True
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -354,31 +410,37 @@ class DockhandContainerSensor(
         stats = self.coordinator.data.get("stats", {}).get(self._unique_key, {})
 
         if key == "state":
-            return container.get("state", "unknown")
+            state = str(container.get("state") or "").lower()
+            return state if state in KNOWN_CONTAINER_STATES else "unknown"
         if key == "image":
             return container.get("image", "")
         if key == "image_tag":
             return _parse_image_tag(container.get("image", ""))
         if key == "health":
-            # Dockhand may expose health directly or it can be parsed from the status string
+            # Dockhand may expose health directly or embed it in the status.
             direct = container.get("health") or container.get("healthStatus")
             if direct:
-                return str(direct).lower()
+                health = str(direct).lower()
+                return health if health in KNOWN_HEALTH_STATES else None
             return _parse_health(container.get("status", ""))
         if key == "cpu_percent":
-            return stats.get("cpuPercent")
+            return _numeric(stats.get("cpuPercent"))
         if key == "memory_usage":
             return _format_bytes(stats.get("memoryUsage"))
         if key == "memory_percent":
-            return stats.get("memoryPercent")
+            return _numeric(stats.get("memoryPercent"))
         if key == "network_rx":
             return _format_bytes(stats.get("networkRx"))
         if key == "network_tx":
             return _format_bytes(stats.get("networkTx"))
         if key == "block_read":
-            return _format_bytes(stats.get("blockRead") or stats.get("blkioRead"))
+            value = stats.get("blockRead")
+            return _format_bytes(value if value is not None else stats.get("blkioRead"))
         if key == "block_write":
-            return _format_bytes(stats.get("blockWrite") or stats.get("blkioWrite"))
+            value = stats.get("blockWrite")
+            return _format_bytes(
+                value if value is not None else stats.get("blkioWrite")
+            )
 
         return None
 
@@ -390,7 +452,7 @@ class DockhandContainerSensor(
             return {}
 
         attrs: dict[str, Any] = {
-            "container_id": self._container_id[:12],
+            "container_id": str(container.get("id", ""))[:12],
             "image": container.get("image", ""),
             "environment": self._env_name,
             "environment_id": self._env_id,
@@ -403,7 +465,10 @@ class DockhandContainerSensor(
             stats = self.coordinator.data.get("stats", {}).get(self._unique_key, {})
             mem_limit = stats.get("memoryLimit")
             if mem_limit:
-                attrs["memory_limit_mb"] = _format_bytes(mem_limit)
+                memory_limit = _format_bytes(mem_limit)
+                attrs["memory_limit_mib"] = memory_limit
+                # Keep the legacy attribute to avoid breaking existing templates.
+                attrs["memory_limit_mb"] = memory_limit
 
         return attrs
 
@@ -428,13 +493,22 @@ class DockhandEnvironmentSensor(
         self._env_id = env_id
         self._env_name = env_info.get("name", f"Environment {env_id}")
 
-        self._attr_unique_id = f"{DOMAIN}_env_{env_id}_{description.key}"
+        resource_key = environment_key(coordinator.config_entry.entry_id, env_id)
+        self._attr_unique_id = entity_unique_id(resource_key, description.key)
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"env_{env_id}")},
+            identifiers={(DOMAIN, resource_key)},
             name=f"Dockhand {self._env_name}",
             manufacturer="Dockhand",
             model="Docker Environment",
             configuration_url=coordinator.client.base_url,
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return whether the environment is in the latest successful update."""
+        return (
+            self.coordinator.last_update_success
+            and self._env_id in self.coordinator.data.get("environments", {})
         )
 
     @property
@@ -488,13 +562,13 @@ class DockhandStackSensor(
         self._env_id = stack_info.get("environment_id")
         self._env_name = stack_info.get("environment_name", "")
 
-        self._attr_unique_id = f"{DOMAIN}_stack_{stack_key}_{description.key}"
+        self._attr_unique_id = entity_unique_id(stack_key, description.key)
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"stack_{stack_key}")},
+            identifiers={(DOMAIN, stack_key)},
             name=self._stack_name,
             manufacturer="Dockhand",
             model="Docker Stack",
-            via_device=(DOMAIN, f"env_{self._env_id}"),
+            via_device_id=stack_info.get("via_device_id"),
         )
 
     @property
@@ -522,10 +596,20 @@ class DockhandStackSensor(
             # Dockhand may return status as a string or integer (1=active, 2=inactive)
             raw = stack.get("status")
             if isinstance(raw, int):
-                return "active" if raw == 1 else "inactive"
-            return str(raw).lower() if raw is not None else "unknown"
+                if raw == 1:
+                    return "active"
+                if raw == 2:
+                    return "inactive"
+                return "unknown"
+            normalized = str(raw).lower() if raw is not None else ""
+            return normalized if normalized in KNOWN_STACK_STATES else "unknown"
 
-        details = stack.get("containerDetails", [])
+        raw_details = stack.get("containerDetails", [])
+        details = (
+            [item for item in raw_details if isinstance(item, dict)]
+            if isinstance(raw_details, list)
+            else []
+        )
         if key == "container_count":
             return len(details)
         if key == "running_count":
