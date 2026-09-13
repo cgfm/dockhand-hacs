@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntry
+from homeassistant.helpers.typing import ConfigType
 
 from .api import (
     DockhandApiClient,
@@ -32,10 +37,25 @@ from .registry import (
     async_sync_registry,
     current_resource_identifiers,
 )
+from .websocket import async_cancel_log_streams, async_setup_websocket
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON]
 
 type DockhandConfigEntry = ConfigEntry[DockhandDataUpdateCoordinator]
+
+FRONTEND_PATH = Path(__file__).parent / "frontend" / "dockhand-logs-card.js"
+FRONTEND_URL = "/dockhand/frontend/dockhand-logs-card.js"
+FRONTEND_MODULE_URL = f"{FRONTEND_URL}?v=1"
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up integration-wide WebSocket and frontend resources."""
+    async_setup_websocket(hass)
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(FRONTEND_URL, str(FRONTEND_PATH), cache_headers=False)]
+    )
+    add_extra_js_url(hass, FRONTEND_MODULE_URL)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: DockhandConfigEntry) -> bool:
@@ -86,6 +106,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DockhandConfigEntry) -> 
 
 async def async_unload_entry(hass: HomeAssistant, entry: DockhandConfigEntry) -> bool:
     """Unload a config entry."""
+    await async_cancel_log_streams(hass, entry.entry_id)
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

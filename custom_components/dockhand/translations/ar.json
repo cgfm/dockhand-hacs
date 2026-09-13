@@ -72,6 +72,15 @@
     },
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
+    },
+    "image_update_not_available": {
+      "message": "لا يتوفر تحديث صورة معلّق للحاوية {container}"
+    },
+    "environment_not_available": {
+      "message": "البيئة {environment} غير متاحة"
+    },
+    "image_update_check_failed": {
+      "message": "فشل التحقق من تحديثات الصور للبيئة {environment}: {error}"
     }
   },
   "entity": {
@@ -140,6 +149,9 @@
       },
       "stack_problem": {
         "name": "Problem"
+      },
+      "image_update_available": {
+        "name": "يتوفر تحديث للصورة"
       }
     },
     "button": {
@@ -160,6 +172,9 @@
       },
       "update": {
         "name": "تحديث الصورة"
+      },
+      "check_image_updates": {
+        "name": "التحقق من تحديثات الصور"
       }
     }
   }

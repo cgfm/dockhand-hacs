@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import codecs
+import json
 import logging
 import re
+from collections.abc import AsyncIterable, AsyncIterator
 from typing import Any
 
 import aiohttp
@@ -37,6 +40,7 @@ class DockhandRateLimitError(DockhandApiError):
 
 _CONTAINER_ID = re.compile(r"^[0-9a-fA-F]{12,64}$")
 _CONTAINER_ACTIONS = frozenset({"start", "stop", "pause", "unpause", "restart"})
+_MAX_SSE_EVENT_CHARS = 1024 * 1024
 
 
 def _validated_container_id(container_id: str) -> str:
@@ -44,6 +48,125 @@ def _validated_container_id(container_id: str) -> str:
     if not _CONTAINER_ID.fullmatch(container_id):
         raise DockhandApiError("Dockhand returned an invalid container ID")
     return container_id
+
+
+def _validated_environment_id(env_id: int) -> int:
+    """Return a validated Dockhand environment ID."""
+    if not isinstance(env_id, int) or isinstance(env_id, bool) or env_id < 1:
+        raise DockhandApiError("Invalid Dockhand environment ID")
+    return env_id
+
+
+async def _iter_sse_events(
+    chunks: AsyncIterable[bytes],
+) -> AsyncIterator[tuple[str, str]]:
+    """Parse an SSE byte stream without assuming aiohttp chunk boundaries."""
+    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    text_buffer = ""
+    event_name = ""
+    data_lines: list[str] = []
+    event_chars = 0
+
+    def process_line(line: str) -> tuple[str, str] | None:
+        """Process one complete SSE line and optionally finish an event."""
+        nonlocal event_name, data_lines, event_chars
+
+        if not line:
+            if not event_name and not data_lines:
+                return None
+            event = (event_name or "message", "\n".join(data_lines))
+            event_name = ""
+            data_lines = []
+            event_chars = 0
+            return event
+
+        if line.startswith(":"):
+            return None
+
+        field, separator, value = line.partition(":")
+        if separator and value.startswith(" "):
+            value = value[1:]
+        if field == "event":
+            event_name = value
+        elif field == "data":
+            data_lines.append(value)
+            event_chars += len(value)
+            if event_chars > _MAX_SSE_EVENT_CHARS:
+                raise DockhandApiError("Dockhand SSE event exceeds the size limit")
+        return None
+
+    async for chunk in chunks:
+        text_buffer += decoder.decode(chunk)
+        while "\n" in text_buffer:
+            line, text_buffer = text_buffer.split("\n", 1)
+            if line.endswith("\r"):
+                line = line[:-1]
+            if event := process_line(line):
+                yield event
+        if len(text_buffer) > _MAX_SSE_EVENT_CHARS:
+            raise DockhandApiError("Dockhand SSE line exceeds the size limit")
+
+    text_buffer += decoder.decode(b"", final=True)
+    if text_buffer:
+        if text_buffer.endswith("\r"):
+            text_buffer = text_buffer[:-1]
+        if event := process_line(text_buffer):
+            yield event
+    if event_name or data_lines:
+        yield event_name or "message", "\n".join(data_lines)
+
+
+def _normalize_sse_event(
+    event_name: str, data: str, container_id: str
+) -> dict[str, Any] | None:
+    """Normalize a relevant Dockhand SSE event for Home Assistant."""
+    if event_name not in {"connected", "log", "end", "error"}:
+        return None
+
+    try:
+        payload: Any = json.loads(data)
+    except json.JSONDecodeError:
+        payload = data
+
+    def payload_text(*keys: str) -> str | None:
+        if isinstance(payload, dict):
+            for key in keys:
+                value = payload.get(key)
+                if isinstance(value, str):
+                    return value
+            return None
+        return payload if isinstance(payload, str) else None
+
+    if event_name == "connected":
+        normalized: dict[str, Any] = {
+            "event": "connected",
+            "container_id": container_id,
+        }
+        if container_name := payload_text("containerName", "container_name", "name"):
+            normalized["container_name"] = container_name
+        return normalized
+
+    if event_name == "log":
+        text = payload_text("text")
+        if text is None:
+            return None
+        normalized = {"event": "log", "text": text}
+        if stream := payload_text("stream"):
+            normalized["stream"] = stream
+        if container_name := payload_text("containerName", "container_name"):
+            normalized["container_name"] = container_name
+        return normalized
+
+    if event_name == "end":
+        return {
+            "event": "end",
+            "reason": payload_text("reason", "message") or "Log stream ended",
+        }
+
+    return {
+        "event": "error",
+        "error": payload_text("error", "message") or "Dockhand log stream error",
+    }
 
 
 class DockhandApiClient:
@@ -69,6 +192,12 @@ class DockhandApiClient:
         self._auth_lock = asyncio.Lock()
         self._timeout = aiohttp.ClientTimeout(total=API_TIMEOUT_SECONDS)
         self._action_timeout = aiohttp.ClientTimeout(total=API_ACTION_TIMEOUT_SECONDS)
+        self._stream_timeout = aiohttp.ClientTimeout(
+            total=None,
+            connect=API_TIMEOUT_SECONDS,
+            sock_connect=API_TIMEOUT_SECONDS,
+            sock_read=None,
+        )
 
     @property
     def base_url(self) -> str:
@@ -96,6 +225,7 @@ class DockhandApiClient:
         params: dict | None = None,
         retry_auth: bool = True,
         request_timeout: aiohttp.ClientTimeout | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Any:
         """Make an API request."""
         session = await self._get_session()
@@ -107,6 +237,7 @@ class DockhandApiClient:
                 url,
                 json=json_data,
                 params=params,
+                headers=headers,
                 cookies=self._cookies,
                 ssl=self._verify_ssl if self._verify_ssl else False,
                 timeout=request_timeout or self._timeout,
@@ -123,12 +254,13 @@ class DockhandApiClient:
                         async with self._auth_lock:
                             await self.authenticate()
                         return await self._request(
-                            method,
-                            path,
-                            json_data,
-                            params,
+                            method=method,
+                            path=path,
+                            json_data=json_data,
+                            params=params,
                             retry_auth=False,
                             request_timeout=request_timeout,
+                            headers=headers,
                         )
                     raise DockhandAuthError("Authentication failed")
 
@@ -247,6 +379,89 @@ class DockhandApiClient:
             f"Unexpected containers response type: {type(result).__name__}"
         )
 
+    async def get_pending_container_updates(self, env_id: int) -> list[dict[str, Any]]:
+        """Return Dockhand's persisted pending image updates for an environment."""
+        env_id = _validated_environment_id(env_id)
+        result = await self._request(
+            "GET",
+            "/containers/check-updates",
+            params={"env": str(env_id)},
+        )
+        if not isinstance(result, dict):
+            raise DockhandApiError("Dockhand returned invalid pending update data")
+
+        response_env_id = result.get("environmentId")
+        if (
+            not isinstance(response_env_id, int)
+            or isinstance(response_env_id, bool)
+            or response_env_id != env_id
+        ):
+            raise DockhandApiError("Dockhand returned invalid pending update data")
+
+        pending = result.get("pendingUpdates")
+        if not isinstance(pending, list):
+            raise DockhandApiError("Dockhand returned invalid pending update data")
+
+        normalized: list[dict[str, Any]] = []
+        for item in pending:
+            if not isinstance(item, dict):
+                raise DockhandApiError("Dockhand returned invalid pending update data")
+            container_id = item.get("containerId")
+            if not isinstance(container_id, str):
+                raise DockhandApiError("Dockhand returned invalid pending update data")
+            try:
+                _validated_container_id(container_id)
+            except DockhandApiError:
+                raise DockhandApiError(
+                    "Dockhand returned invalid pending update data"
+                ) from None
+
+            update: dict[str, Any] = {"container_id": container_id}
+            for source, target in (
+                ("containerName", "container_name"),
+                ("currentImage", "current_image"),
+                ("checkedAt", "checked_at"),
+            ):
+                value = item.get(source)
+                if value is not None and not isinstance(value, str):
+                    raise DockhandApiError(
+                        "Dockhand returned invalid pending update data"
+                    )
+                if value:
+                    update[target] = value
+            normalized.append(update)
+        return normalized
+
+    async def check_container_updates(self, env_id: int) -> dict[str, Any]:
+        """Ask Dockhand to perform a fresh registry update check."""
+        env_id = _validated_environment_id(env_id)
+        result = await self._request(
+            "POST",
+            "/containers/check-updates",
+            params={"env": str(env_id)},
+            request_timeout=self._action_timeout,
+            headers={"Accept": "application/json"},
+        )
+        if not isinstance(result, dict):
+            raise DockhandApiError("Dockhand returned invalid image update check data")
+
+        total = result.get("total")
+        updates_found = result.get("updatesFound")
+        results = result.get("results")
+        if (
+            not isinstance(total, int)
+            or isinstance(total, bool)
+            or total < 0
+            or not isinstance(updates_found, int)
+            or isinstance(updates_found, bool)
+            or updates_found < 0
+            or updates_found > total
+            or not isinstance(results, list)
+            or any(not isinstance(item, dict) for item in results)
+        ):
+            raise DockhandApiError("Dockhand returned invalid image update check data")
+        return result
+
     async def get_container_stats(
         self, container_id: str, env_id: int
     ) -> dict[str, Any]:
@@ -278,6 +493,68 @@ class DockhandApiClient:
         raise DockhandApiError(
             f"Unexpected container inspect response type: {type(result).__name__}"
         )
+
+    async def stream_container_logs(
+        self,
+        container_id: str,
+        env_id: int,
+        tail: int = 200,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Stream normalized container log events from Dockhand."""
+        container_id = _validated_container_id(container_id)
+        env_id = _validated_environment_id(env_id)
+        if not isinstance(tail, int) or isinstance(tail, bool) or not 1 <= tail <= 5000:
+            raise DockhandApiError("Invalid Dockhand log tail value")
+
+        session = await self._get_session()
+        url = f"{self._url}/api/containers/{container_id}/logs/stream"
+        retry_auth = True
+
+        while True:
+            response: aiohttp.ClientResponse | None = None
+            try:
+                response = await session.get(
+                    url,
+                    params={"env": str(env_id), "tail": str(tail)},
+                    headers={"Accept": "text/event-stream"},
+                    cookies=self._cookies,
+                    ssl=self._verify_ssl if self._verify_ssl else False,
+                    timeout=self._stream_timeout,
+                )
+
+                for cookie_name, cookie in response.cookies.items():
+                    self._cookies[cookie_name] = cookie.value
+
+                if response.status == 401:
+                    response.close()
+                    response = None
+                    if retry_auth:
+                        retry_auth = False
+                        async with self._auth_lock:
+                            await self.authenticate()
+                        continue
+                    raise DockhandAuthError("Authentication failed")
+
+                if response.status == 403:
+                    raise DockhandAuthError("Permission denied")
+                if response.status >= 400:
+                    raise DockhandApiError(
+                        f"Dockhand log stream failed with HTTP {response.status}"
+                    )
+
+                async for event_name, data in _iter_sse_events(
+                    response.content.iter_any()
+                ):
+                    if normalized := _normalize_sse_event(
+                        event_name, data, container_id
+                    ):
+                        yield normalized
+                return
+            except TimeoutError, aiohttp.ClientError:
+                raise DockhandConnectionError("Cannot connect to Dockhand") from None
+            finally:
+                if response is not None:
+                    response.close()
 
     async def container_action(
         self, container_id: str, action: str, env_id: int

@@ -72,6 +72,15 @@
     },
     "container_action_failed": {
       "message": "Aktion {action} für Container {container} fehlgeschlagen: {error}"
+    },
+    "image_update_not_available": {
+      "message": "Für Container {container} ist kein ausstehendes Image-Update verfügbar"
+    },
+    "environment_not_available": {
+      "message": "Environment {environment} ist nicht verfügbar"
+    },
+    "image_update_check_failed": {
+      "message": "Image-Updates für Environment {environment} konnten nicht geprüft werden: {error}"
     }
   },
   "entity": {
@@ -140,6 +149,9 @@
       },
       "stack_problem": {
         "name": "Problem"
+      },
+      "image_update_available": {
+        "name": "Image-Update verfügbar"
       }
     },
     "button": {
@@ -160,6 +172,9 @@
       },
       "update": {
         "name": "Image aktualisieren"
+      },
+      "check_image_updates": {
+        "name": "Image-Updates prüfen"
       }
     }
   }

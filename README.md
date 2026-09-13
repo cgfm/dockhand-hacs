@@ -31,11 +31,93 @@ A local-polling Home Assistant custom integration for monitoring and controlling
 
 ## Features
 
+Version 1.3.0 adds administrator-only, on-demand live container logs and Dockhand-native image-update detection without requiring DIUN. Both features keep Dockhand responsible for Docker access while Home Assistant provides a secure display and explicit user actions.
+
 Each Dockhand environment is represented as a parent device. Stacks and containers are linked to their environment as child devices.
 
-Container devices provide state, image/tag, health, CPU, memory, network and block-I/O sensors; a running binary sensor; and guarded start, stop, pause, unpause, restart and image-update buttons. Statistics are available only while Dockhand returns current stats for a running container. A container without a Docker healthcheck reports no health value rather than being treated as unhealthy.
+Container devices provide state, image/tag, health, CPU, memory, network and block-I/O sensors; running and image-update binary sensors; and guarded start, stop, pause, unpause, restart and image-update buttons. Statistics are available only while Dockhand returns current stats for a running container. A container without a Docker healthcheck reports no health value rather than being treated as unhealthy.
 
-Environment devices provide total, running and stopped container counts. Stack devices provide status and container counts plus active and problem binary sensors.
+Environment devices provide total, running and stopped container counts plus a manual image-update-check button. Stack devices provide status and container counts plus active and problem binary sensors.
+
+### Image updates detected by Dockhand
+
+DIUN is not required for this workflow. Dockhand performs registry checks and persistently records pending image updates; Home Assistant only reads that cached result, displays it and lets a user start an update. A normal Home Assistant coordinator refresh calls only Dockhand's read-only pending-update endpoint and never starts a registry scan.
+
+```text
+Dockhand Scheduler
+    ↓
+Image Registry Check
+    ↓
+Dockhand Pending Updates
+    ↓
+dockhand-hacs
+    ↓
+binary_sensor.<container>_image_update_available
+    ↓
+HA Notification / Dashboard
+    ↓
+button.<container>_update_image
+    ↓
+Dockhand pulls + recreates container
+```
+
+Recommended operation:
+
+- In Dockhand, enable the `env_update_check` scheduler, leave **Auto Update** off and run it at an appropriate interval, for example every six hours.
+- Home Assistant reads Dockhand's persisted findings during its normal polling cycle.
+- The environment's **Check image updates** button can start an on-demand Dockhand registry check. It is also the fallback when the installed Dockhand version does not provide the scheduler.
+- A container's **Image update available** binary sensor turns on for a pending update. Its attributes contain only the configured image and Dockhand check time.
+- The existing **Update image** button becomes available only while that container has a pending update. Dockhand still performs the pull and recreate; after success Home Assistant refreshes immediately and the pending state disappears.
+
+Home Assistant does not install updates automatically, run a second periodic registry scheduler or fabricate version numbers for an `UpdateEntity`. Dockhand remains responsible for detection and installation, while Home Assistant provides status, automations and explicit user actions.
+
+For example, notify a phone when Dockhand finds an image update:
+
+```yaml
+automation:
+  - alias: Docker image update available
+    triggers:
+      - trigger: state
+        entity_id:
+          - binary_sensor.paperless_image_update_available
+        to: "on"
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          title: Docker Update
+          message: Paperless has a new container image available.
+```
+
+### On-demand live logs
+
+Dockhand includes a small, mobile-friendly `custom:dockhand-logs-card`. Opening the card creates one Home Assistant WebSocket subscription and one upstream Dockhand SSE connection for that viewer. Closing/removing the card immediately unsubscribes and closes the SSE connection. No log polling runs in the background, and log contents are never written to entity states, attributes, the recorder, diagnostics, or Python logs.
+
+The card is served and registered automatically when the integration loads. Add it to a dashboard with any Dockhand **container** sensor or running binary sensor:
+
+```yaml
+type: custom:dockhand-logs-card
+entity: sensor.paperless_state
+name: Paperless
+tail: 200
+```
+
+The entity supplies the current runtime container ID, environment ID and config-entry ID. This is preferred over hard-coding a Docker runtime ID because Dockhand entities retain their logical identity when a container is recreated. The entity must come from this integration; the backend verifies the requested ID against the selected environment and current coordinator snapshot.
+
+An explicit configuration is also supported when no suitable entity is available:
+
+```yaml
+type: custom:dockhand-logs-card
+entry_id: 01JEXAMPLECONFIGENTRY
+container_id: a1b2c3d4e5f6
+env_id: 1
+name: Paperless
+tail: 200
+max_lines: 3000
+```
+
+`tail` accepts 1–5000 initial lines and defaults to 200. `max_lines` controls the bounded browser-only buffer (100–5000, default 3000). Auto-scroll starts enabled and stops when the viewer scrolls upward. Pause keeps the subscription open but buffers only up to `max_lines`; Clear removes only the local card buffer.
+
+Live logs are intentionally restricted to Home Assistant administrators. The browser talks only to Home Assistant and never receives Dockhand credentials or session cookies. Each browser/viewer has an independent stream.
 
 ### Stable container identities
 
@@ -98,7 +180,7 @@ The safe rollback is to restore the full pre-upgrade Home Assistant backup. Down
 
 ## Container actions
 
-Buttons are available only when the current container state permits the corresponding operation. The update button asks Dockhand to pull the configured image and recreate the container. Test this operation on non-critical containers first and keep application-specific backups; Dockhand, Docker and the container image determine the actual recreate behavior.
+Buttons are available only when the current container state permits the corresponding operation. The update button additionally requires a pending update reported by Dockhand; it does not serve as an implicit force-pull button. It asks Dockhand to pull the configured image and recreate the container, then requests an immediate coordinator refresh. Test this operation on non-critical containers first and keep application-specific backups; Dockhand, Docker and the container image determine the actual recreate behavior.
 
 ## Diagnostics and privacy
 
@@ -110,8 +192,17 @@ Downloaded diagnostics redact the Dockhand URL, username and password. They cont
 - **Authentication failed:** use a local Dockhand account and complete the reauthentication flow.
 - **No containers:** verify the selected environments and Dockhand's Docker connection.
 - **Stats unavailable:** Dockhand stats are requested only for running containers; individual stats failures do not discard the main snapshot.
+- **Image update sensor unavailable:** the installed Dockhand version may not support `GET /api/containers/check-updates`, the configured account may lack permission, or the endpoint may be temporarily rate-limited. Other Dockhand entities continue working. Upgrade Dockhand or use Dockhand's own update UI until the endpoint is available.
+- **No update is shown yet:** enable Dockhand's `env_update_check` scheduler or press **Check image updates** on the environment device. Normal Home Assistant polling deliberately does not perform registry checks.
+- **Registry/Docker Hub rate limit:** wait for the provider's limit to reset and run the manual check again. Partial per-image failures remain Dockhand's responsibility and do not replace already persisted successful findings.
+- **Update failed after a recreate:** refresh the integration first. The button always uses the newest runtime ID in the coordinator snapshot, but Dockhand can reject an action when the container changes again between refresh and button press.
 - **A legacy device remains after migration:** inspect the Home Assistant log for an ownership, unique-ID or foreign-entity warning. Do not edit `.storage`; report the sanitized warning and diagnostics in the [issue tracker](https://github.com/cgfm/dockhand-hacs/issues).
 - **A removed device remains:** this is expected during the seven-day safety grace period. A later integration reload/restart evaluates cleanup.
+- **The logs card is unknown:** restart Home Assistant after installing/updating the integration, then reload the frontend or clear the Companion App/browser cache. The module is served at `/dockhand/frontend/dockhand-logs-card.js`; no manual Lovelace resource entry is normally required.
+- **Live logs require an administrator:** log streams may expose passwords, tokens and personal data written by applications, so non-admin dashboard users cannot subscribe.
+- **Container or environment unavailable:** use a current Dockhand container entity in the card and verify that its environment is selected in the integration options. Explicit Docker runtime IDs can change after a recreate.
+- **Dockhand denied/unavailable:** verify that the configured local Dockhand account can open container logs, the Home Assistant host can reach Dockhand, and any reverse proxy permits long-lived `text/event-stream` responses without buffering or a short read timeout.
+- **Stream ended after an integration reload:** entry reload deliberately cancels every open SSE task. Use **Reconnect** in the card (or close and reopen it) after the entry has loaded again.
 
 ## Development and validation
 

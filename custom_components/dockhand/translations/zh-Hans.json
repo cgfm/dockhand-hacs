@@ -72,6 +72,15 @@
     },
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
+    },
+    "image_update_not_available": {
+      "message": "容器 {container} 没有待处理的镜像更新"
+    },
+    "environment_not_available": {
+      "message": "环境 {environment} 不可用"
+    },
+    "image_update_check_failed": {
+      "message": "检查环境 {environment} 的镜像更新失败：{error}"
     }
   },
   "entity": {
@@ -140,6 +149,9 @@
       },
       "stack_problem": {
         "name": "Problem"
+      },
+      "image_update_available": {
+        "name": "有可用镜像更新"
       }
     },
     "button": {
@@ -160,6 +172,9 @@
       },
       "update": {
         "name": "更新镜像"
+      },
+      "check_image_updates": {
+        "name": "检查镜像更新"
       }
     }
   }

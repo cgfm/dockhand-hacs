@@ -72,6 +72,15 @@
     },
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
+    },
+    "image_update_not_available": {
+      "message": "No pending image update is available for container {container}"
+    },
+    "environment_not_available": {
+      "message": "Environment {environment} is not available"
+    },
+    "image_update_check_failed": {
+      "message": "Failed to check image updates for environment {environment}: {error}"
     }
   },
   "entity": {
@@ -140,6 +149,9 @@
       },
       "stack_problem": {
         "name": "Problem"
+      },
+      "image_update_available": {
+        "name": "Image update available"
       }
     },
     "button": {
@@ -160,6 +172,9 @@
       },
       "update": {
         "name": "Update image"
+      },
+      "check_image_updates": {
+        "name": "Check image updates"
       }
     }
   }

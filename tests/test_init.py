@@ -5,13 +5,19 @@ from __future__ import annotations
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, patch
 
+from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.dockhand import async_migrate_entry, async_remove_entry
+from custom_components.dockhand import (
+    FRONTEND_MODULE_URL,
+    FRONTEND_URL,
+    async_migrate_entry,
+    async_remove_entry,
+)
 from custom_components.dockhand.const import (
     CONF_PASSWORD,
     CONF_URL,
@@ -86,6 +92,12 @@ def _api_mocks() -> tuple[ExitStack, AsyncMock]:
             ),
         )
     )
+    stack.enter_context(
+        patch(
+            "custom_components.dockhand.api.DockhandApiClient.get_pending_container_updates",
+            new=AsyncMock(return_value=[]),
+        )
+    )
 
     async def inspect(container_id: str, _env_id: int) -> dict[str, object]:
         labels = LABELS_A if container_id == RUNTIME_A else LABELS_B
@@ -132,9 +144,13 @@ async def test_setup_reload_and_unload(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         assert entry.state is ConfigEntryState.LOADED
+        assert FRONTEND_MODULE_URL in hass.data[DATA_EXTRA_MODULE_URL].urls
+        assert FRONTEND_URL in {
+            resource.canonical for resource in hass.http.app.router.resources()
+        }
         assert (
             len(er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id))
-            == 27
+            == 29
         )
 
         assert await hass.config_entries.async_reload(entry.entry_id)
@@ -142,7 +158,7 @@ async def test_setup_reload_and_unload(hass: HomeAssistant) -> None:
         assert entry.state is ConfigEntryState.LOADED
         assert (
             len(er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id))
-            == 27
+            == 29
         )
 
         assert await hass.config_entries.async_unload(entry.entry_id)
@@ -161,7 +177,7 @@ async def test_refresh_adds_each_entity_once_across_temporary_gaps(
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         registry = er.async_get(hass)
-        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 27
+        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 29
 
         containers.return_value = [
             _container(RUNTIME_A, "/web", "example/web:1"),
@@ -169,7 +185,7 @@ async def test_refresh_adds_each_entity_once_across_temporary_gaps(
         ]
         await entry.runtime_data.async_refresh()
         await hass.async_block_till_done()
-        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 45
+        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 48
 
         containers.return_value = [_container(RUNTIME_B, "/worker", "example/worker:1")]
         await entry.runtime_data.async_refresh()
@@ -180,7 +196,7 @@ async def test_refresh_adds_each_entity_once_across_temporary_gaps(
         await entry.runtime_data.async_refresh()
         await hass.async_block_till_done()
 
-        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 45
+        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 48
         assert await hass.config_entries.async_unload(entry.entry_id)
 
 

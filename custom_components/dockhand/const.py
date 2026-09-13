@@ -15,6 +15,9 @@ CONF_VERIFY_SSL = "verify_ssl"
 CONF_ENVIRONMENTS = "environments"
 CONF_SCAN_INTERVAL = "scan_interval"
 
+DATA_IMAGE_UPDATES = "image_updates"
+DATA_IMAGE_UPDATE_STATUS = "image_update_status"
+
 ATTR_CONTAINER_ID = "container_id"
 ATTR_CONTAINER_IMAGE = "image"
 ATTR_CONTAINER_STATUS = "status"

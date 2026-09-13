@@ -14,10 +14,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import DockhandApiError
-from .const import DOMAIN
+from .const import DATA_IMAGE_UPDATES, DOMAIN
 from .coordinator import DockhandDataUpdateCoordinator
 from .identity import (
     entity_unique_id,
+    environment_key,
     reconcile_resource_keys,
 )
 
@@ -68,6 +69,13 @@ BUTTON_DESCRIPTIONS: tuple[DockhandButtonEntityDescription, ...] = (
     ),
 )
 
+ENVIRONMENT_CHECK_DESCRIPTION = DockhandButtonEntityDescription(
+    key="check_image_updates",
+    translation_key="check_image_updates",
+    icon="mdi:refresh",
+    action="check_image_updates",
+)
+
 
 def _with_parent(device_info: DeviceInfo, via_device_id: Any) -> DeviceInfo:
     """Attach a parent only when Dockhand supplied a valid HA device ID."""
@@ -86,6 +94,11 @@ async def async_setup_entry(
 
     entities: list[ButtonEntity] = []
 
+    for env_id, env_info in coordinator.data.get("environments", {}).items():
+        entities.append(
+            DockhandEnvironmentCheckUpdatesButton(coordinator, env_id, env_info)
+        )
+
     for unique_key, container_info in coordinator.data.get("containers", {}).items():
         for description in BUTTON_DESCRIPTIONS:
             entities.append(
@@ -96,19 +109,37 @@ async def async_setup_entry(
 
     async_add_entities(entities)
 
-    known_keys: set[str] = set(coordinator.data.get("containers", {}).keys())
+    known_environment_keys: set[int] = set(
+        coordinator.data.get("environments", {}).keys()
+    )
+    known_container_keys: set[str] = set(coordinator.data.get("containers", {}).keys())
 
     @callback
     def _async_check_new_entities() -> None:
-        nonlocal known_keys
+        nonlocal known_environment_keys, known_container_keys
         new_entities: list[ButtonEntity] = []
-        current_keys = set(coordinator.data.get("containers", {}).keys())
-        new_keys = reconcile_resource_keys(
-            current_keys,
-            known_keys,
+
+        current_environment_keys = set(coordinator.data.get("environments", {}).keys())
+        new_environment_keys = reconcile_resource_keys(
+            current_environment_keys,
+            known_environment_keys,
+        )
+        for env_id in new_environment_keys:
+            new_entities.append(
+                DockhandEnvironmentCheckUpdatesButton(
+                    coordinator,
+                    env_id,
+                    coordinator.data["environments"][env_id],
+                )
+            )
+
+        current_container_keys = set(coordinator.data.get("containers", {}).keys())
+        new_container_keys = reconcile_resource_keys(
+            current_container_keys,
+            known_container_keys,
         )
 
-        for unique_key in new_keys:
+        for unique_key in new_container_keys:
             container_info = coordinator.data["containers"][unique_key]
             for description in BUTTON_DESCRIPTIONS:
                 new_entities.append(
@@ -186,6 +217,10 @@ class DockhandContainerButton(
                 and container.get("id")
                 and container.get("image")
                 and container.get("name")
+                and self.coordinator.data.get(DATA_IMAGE_UPDATES, {})
+                .get(self._unique_key, {})
+                .get("available")
+                is True
             )
         return False
 
@@ -203,6 +238,17 @@ class DockhandContainerButton(
         environment_id = container.get("environment_id", self._env_id)
         try:
             if self.entity_description.action == "update":
+                if (
+                    self.coordinator.data.get(DATA_IMAGE_UPDATES, {})
+                    .get(self._unique_key, {})
+                    .get("available")
+                    is not True
+                ):
+                    raise HomeAssistantError(
+                        translation_domain=DOMAIN,
+                        translation_key="image_update_not_available",
+                        translation_placeholders={"container": container_name},
+                    )
                 image = str(container.get("image", self._image))
                 await self.coordinator.client.update_container_image(
                     str(container_id), environment_id, image, container_name
@@ -221,6 +267,66 @@ class DockhandContainerButton(
                 translation_placeholders={
                     "action": self.entity_description.action,
                     "container": container_name,
+                    "error": str(err),
+                },
+            ) from err
+
+
+class DockhandEnvironmentCheckUpdatesButton(
+    CoordinatorEntity[DockhandDataUpdateCoordinator], ButtonEntity
+):
+    """Button to ask Dockhand for a fresh registry update check."""
+
+    _attr_has_entity_name = True
+    entity_description = ENVIRONMENT_CHECK_DESCRIPTION
+
+    def __init__(
+        self,
+        coordinator: DockhandDataUpdateCoordinator,
+        env_id: int,
+        env_info: dict[str, Any],
+    ) -> None:
+        """Initialize the environment update-check button."""
+        super().__init__(coordinator)
+        self._env_id = env_id
+        self._env_name = str(env_info.get("name", f"Environment {env_id}"))
+        resource_key = environment_key(coordinator.config_entry.entry_id, env_id)
+        self._attr_unique_id = entity_unique_id(
+            resource_key, ENVIRONMENT_CHECK_DESCRIPTION.key
+        )
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, resource_key)},
+            name=f"Dockhand {self._env_name}",
+            manufacturer="Dockhand",
+            model="Docker Environment",
+            configuration_url=coordinator.client.base_url,
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return whether the environment is part of the current snapshot."""
+        return (
+            self.coordinator.last_update_success
+            and self._env_id in self.coordinator.data.get("environments", {})
+        )
+
+    async def async_press(self) -> None:
+        """Ask Dockhand to check registries, then read its persisted result."""
+        if self._env_id not in self.coordinator.data.get("environments", {}):
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="environment_not_available",
+                translation_placeholders={"environment": self._env_name},
+            )
+        try:
+            await self.coordinator.client.check_container_updates(self._env_id)
+            await self.coordinator.async_request_refresh()
+        except DockhandApiError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="image_update_check_failed",
+                translation_placeholders={
+                    "environment": self._env_name,
                     "error": str(err),
                 },
             ) from err

@@ -72,6 +72,15 @@
     },
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
+    },
+    "image_update_not_available": {
+      "message": "कंटेनर {container} के लिए कोई लंबित इमेज अपडेट उपलब्ध नहीं है"
+    },
+    "environment_not_available": {
+      "message": "एनवायरनमेंट {environment} उपलब्ध नहीं है"
+    },
+    "image_update_check_failed": {
+      "message": "एनवायरनमेंट {environment} के लिए इमेज अपडेट जाँच विफल हुई: {error}"
     }
   },
   "entity": {
@@ -140,6 +149,9 @@
       },
       "stack_problem": {
         "name": "Problem"
+      },
+      "image_update_available": {
+        "name": "इमेज अपडेट उपलब्ध"
       }
     },
     "button": {
@@ -160,6 +172,9 @@
       },
       "update": {
         "name": "इमेज अपडेट करें"
+      },
+      "check_image_updates": {
+        "name": "इमेज अपडेट जाँचें"
       }
     }
   }

@@ -25,6 +25,8 @@ from .api import (
 from .const import (
     CONF_ENVIRONMENTS,
     CONF_SCAN_INTERVAL,
+    DATA_IMAGE_UPDATE_STATUS,
+    DATA_IMAGE_UPDATES,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     MAX_PARALLEL_REQUESTS,
@@ -84,6 +86,7 @@ class DockhandDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._identity_registry = ContainerIdentityRegistry()
         self._request_semaphore = asyncio.Semaphore(MAX_PARALLEL_REQUESTS)
+        self._pending_update_failures: set[int] = set()
 
         scan_interval = config_entry.options.get(
             CONF_SCAN_INTERVAL,
@@ -131,6 +134,8 @@ class DockhandDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data: dict[str, Any] = {
                 "environments": {},
                 "containers": {},
+                DATA_IMAGE_UPDATES: {},
+                DATA_IMAGE_UPDATE_STATUS: {},
                 "stats": {},
                 "stacks": {},
             }
@@ -157,7 +162,7 @@ class DockhandDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 env_map[env_id] = env
                 data["environments"][env_id] = env
 
-            # Fetch containers + stacks for all environments in parallel
+            # Fetch containers, stacks, and cached updates for all environments.
             used_identity_ids: set[str] = set()
             await asyncio.gather(
                 *[
@@ -212,10 +217,12 @@ class DockhandDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Fetch containers and stacks for one environment (run concurrently)."""
         env_name = env_info.get("name", f"env-{env_id}")
 
-        containers_result, stacks_result = await asyncio.gather(
+        containers_result, stacks_result, pending_updates = await asyncio.gather(
             self._limited(self.client.get_containers, env_id),
             self._limited(self.client.get_stacks, env_id),
+            self._fetch_pending_updates(env_id),
         )
+        data[DATA_IMAGE_UPDATE_STATUS][env_id] = pending_updates is not None
 
         if not stacks_result:
             _LOGGER.debug("No stacks returned for environment ID %s", env_id)
@@ -257,6 +264,11 @@ class DockhandDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             *(_with_inspect(container) for container in containers)
         )
 
+        pending_by_runtime_id = {
+            str(update["container_id"]).lower(): update
+            for update in pending_updates or []
+        }
+
         for container, inspected in enriched_containers:
             stable_id = self._identity_registry.resolve(
                 env_id, container, used_identity_ids
@@ -270,6 +282,24 @@ class DockhandDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "environment_id": env_id,
                 "environment_name": env_name,
             }
+            runtime_id = str(container["id"]).lower()
+            pending = pending_by_runtime_id.get(runtime_id)
+            if pending is None:
+                prefix_matches = [
+                    update
+                    for pending_id, update in pending_by_runtime_id.items()
+                    if runtime_id.startswith(pending_id)
+                    or pending_id.startswith(runtime_id)
+                ]
+                if len(prefix_matches) == 1:
+                    pending = prefix_matches[0]
+            if pending is not None:
+                image_update: dict[str, Any] = {"available": True}
+                if current_image := pending.get("current_image"):
+                    image_update["current_image"] = current_image
+                if checked_at := pending.get("checked_at"):
+                    image_update["checked_at"] = checked_at
+                data[DATA_IMAGE_UPDATES][unique_key] = image_update
 
         for stack in stacks_result:
             if not isinstance(stack, dict):
@@ -288,6 +318,31 @@ class DockhandDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "environment_id": env_id,
                 "environment_name": env_name,
             }
+
+    async def _fetch_pending_updates(self, env_id: int) -> list[dict[str, Any]] | None:
+        """Fetch optional cached update metadata without failing the main refresh."""
+        try:
+            updates = await self._limited(
+                self.client.get_pending_container_updates, env_id
+            )
+        except DockhandApiError:
+            if env_id not in self._pending_update_failures:
+                _LOGGER.warning(
+                    "Unable to read cached image update status for Dockhand "
+                    "environment %s; other integration data remains available",
+                    env_id,
+                )
+                self._pending_update_failures.add(env_id)
+            else:
+                _LOGGER.debug(
+                    "Cached image update status remains unavailable for Dockhand "
+                    "environment %s",
+                    env_id,
+                )
+            return None
+
+        self._pending_update_failures.discard(env_id)
+        return updates
 
     async def _fetch_container_stats(
         self, data: dict[str, Any], unique_key: str, container: dict

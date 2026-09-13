@@ -462,6 +462,7 @@ class DockhandContainerSensor(
 
         attrs: dict[str, Any] = {
             "container_id": str(container.get("id", ""))[:12],
+            "entry_id": self.coordinator.config_entry.entry_id,
             "image": container.get("image", ""),
             "environment": self._env_name,
             "environment_id": self._env_id,

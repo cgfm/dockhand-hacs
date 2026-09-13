@@ -5,13 +5,24 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import pytest
+from homeassistant.exceptions import HomeAssistantError
+
+from custom_components.dockhand.api import DockhandApiError
 from custom_components.dockhand.binary_sensor import (
+    DockhandContainerImageUpdateSensor,
     DockhandContainerRunningSensor,
     DockhandStackHealthySensor,
 )
 from custom_components.dockhand.button import (
     BUTTON_DESCRIPTIONS,
     DockhandContainerButton,
+    DockhandEnvironmentCheckUpdatesButton,
+)
+from custom_components.dockhand.const import (
+    DATA_IMAGE_UPDATE_STATUS,
+    DATA_IMAGE_UPDATES,
+    DOMAIN,
 )
 from custom_components.dockhand.sensor import (
     CONTAINER_SENSOR_DESCRIPTIONS,
@@ -32,10 +43,12 @@ def _coordinator() -> SimpleNamespace:
         config_entry=SimpleNamespace(entry_id="entry-a"),
         client=SimpleNamespace(
             base_url="https://dockhand.example",
+            check_container_updates=AsyncMock(),
             container_action=AsyncMock(),
             update_container_image=AsyncMock(),
         ),
         data={
+            "environments": {1: {"id": 1, "name": "Local"}},
             "containers": {
                 CONTAINER_KEY: {
                     "id": "a" * 64,
@@ -47,6 +60,14 @@ def _coordinator() -> SimpleNamespace:
                     "via_device_id": "environment-device",
                 }
             },
+            DATA_IMAGE_UPDATES: {
+                CONTAINER_KEY: {
+                    "available": True,
+                    "current_image": "registry.example:5000/team/web:1.2",
+                    "checked_at": "2026-09-13T17:22:03Z",
+                }
+            },
+            DATA_IMAGE_UPDATE_STATUS: {1: True},
             "stats": {CONTAINER_KEY: {"cpuPercent": 3.5, "memoryUsage": 1048576}},
             "stacks": {
                 STACK_KEY: {
@@ -89,6 +110,14 @@ def _button(action: str) -> DockhandContainerButton:
         CONTAINER_KEY,
         coordinator.data["containers"][CONTAINER_KEY],
         description,
+    )
+
+
+def _environment_button() -> DockhandEnvironmentCheckUpdatesButton:
+    """Create the environment image-check button."""
+    coordinator = _coordinator()
+    return DockhandEnvironmentCheckUpdatesButton(
+        coordinator, 1, coordinator.data["environments"][1]
     )
 
 
@@ -164,6 +193,21 @@ def test_container_device_uses_resolved_parent_device_id() -> None:
     assert "via_device" not in sensor.device_info
 
 
+def test_container_entities_expose_only_live_log_routing_metadata() -> None:
+    """The card can resolve a stream without storing any log content."""
+    sensor = _container_sensor("state")
+    coordinator = _coordinator()
+    running = DockhandContainerRunningSensor(
+        coordinator, CONTAINER_KEY, coordinator.data["containers"][CONTAINER_KEY]
+    )
+
+    for attributes in (sensor.extra_state_attributes, running.extra_state_attributes):
+        assert attributes["entry_id"] == "entry-a"
+        assert attributes["container_id"] == "a" * 12
+        assert attributes["environment_id"] == 1
+        assert "logs" not in attributes
+
+
 def test_button_availability_follows_container_state() -> None:
     """Impossible lifecycle actions are disabled before a user can invoke them."""
     assert not _button("start").available
@@ -185,6 +229,59 @@ def test_button_availability_follows_container_state() -> None:
     assert not update.available
 
 
+def test_image_update_sensor_reports_pending_metadata_and_device() -> None:
+    """Pending Dockhand data produces an on sensor on the container device."""
+    coordinator = _coordinator()
+    sensor = DockhandContainerImageUpdateSensor(
+        coordinator, CONTAINER_KEY, coordinator.data["containers"][CONTAINER_KEY]
+    )
+
+    assert sensor.available
+    assert sensor.is_on
+    assert sensor.extra_state_attributes == {
+        "image": "registry.example:5000/team/web:1.2",
+        "checked_at": "2026-09-13T17:22:03Z",
+    }
+    assert sensor.device_info["identifiers"] == {(DOMAIN, CONTAINER_KEY)}
+    assert sensor.device_info["via_device_id"] == "environment-device"
+
+
+def test_image_update_sensor_is_off_without_pending_update() -> None:
+    """A successful empty cached-update response produces an off state."""
+    coordinator = _coordinator()
+    coordinator.data[DATA_IMAGE_UPDATES].clear()
+    sensor = DockhandContainerImageUpdateSensor(
+        coordinator, CONTAINER_KEY, coordinator.data["containers"][CONTAINER_KEY]
+    )
+
+    assert sensor.available
+    assert sensor.is_on is False
+    assert sensor.extra_state_attributes == {}
+
+
+def test_image_update_sensor_is_unavailable_when_endpoint_failed() -> None:
+    """Missing optional metadata is not falsely reported as no update."""
+    coordinator = _coordinator()
+    coordinator.data[DATA_IMAGE_UPDATE_STATUS][1] = False
+    sensor = DockhandContainerImageUpdateSensor(
+        coordinator, CONTAINER_KEY, coordinator.data["containers"][CONTAINER_KEY]
+    )
+
+    assert not sensor.available
+    assert sensor.is_on is None
+    assert sensor.extra_state_attributes == {}
+
+
+def test_update_button_requires_pending_update() -> None:
+    """The image update action is disabled without Dockhand pending state."""
+    button = _button("update")
+    assert button.available
+
+    button.coordinator.data[DATA_IMAGE_UPDATES].clear()
+
+    assert not button.available
+
+
 async def test_button_uses_latest_runtime_id_after_recreate() -> None:
     """An existing button operates on the latest coordinator runtime ID."""
     button = _button("restart")
@@ -197,6 +294,87 @@ async def test_button_uses_latest_runtime_id_after_recreate() -> None:
         "b" * 64, "restart", 1
     )
     button.coordinator.async_request_refresh.assert_awaited_once()
+
+
+async def test_update_button_calls_dockhand_then_refreshes() -> None:
+    """Image installation remains a Dockhand action followed by a fresh snapshot."""
+    button = _button("update")
+
+    await button.async_press()
+
+    button.coordinator.client.update_container_image.assert_awaited_once_with(
+        "a" * 64,
+        1,
+        "registry.example:5000/team/web:1.2",
+        "web",
+    )
+    button.coordinator.async_request_refresh.assert_awaited_once()
+
+
+async def test_update_button_rejects_stale_press_without_pending_update() -> None:
+    """A race cannot turn the guarded button back into an implicit force pull."""
+    button = _button("update")
+    button.coordinator.data[DATA_IMAGE_UPDATES].clear()
+
+    with pytest.raises(HomeAssistantError) as raised:
+        await button.async_press()
+
+    assert raised.value.translation_key == "image_update_not_available"
+    button.coordinator.client.update_container_image.assert_not_awaited()
+    button.coordinator.async_request_refresh.assert_not_awaited()
+
+
+async def test_update_button_maps_api_failure_to_home_assistant_error() -> None:
+    """Dockhand update failures use the integration's translated HA error."""
+    button = _button("update")
+    button.coordinator.client.update_container_image.side_effect = DockhandApiError(
+        "Update failed"
+    )
+
+    with pytest.raises(HomeAssistantError) as raised:
+        await button.async_press()
+
+    assert raised.value.translation_key == "container_action_failed"
+    button.coordinator.async_request_refresh.assert_not_awaited()
+
+
+async def test_environment_check_button_calls_dockhand_then_refreshes() -> None:
+    """A manual environment check delegates registry work to Dockhand."""
+    button = _environment_button()
+
+    assert button.available
+    assert button.device_info["identifiers"] == {(DOMAIN, "environment:entry-a:1")}
+    await button.async_press()
+
+    button.coordinator.client.check_container_updates.assert_awaited_once_with(1)
+    button.coordinator.async_request_refresh.assert_awaited_once()
+
+
+async def test_environment_check_button_maps_api_failure() -> None:
+    """Manual registry-check errors become translated HomeAssistantError values."""
+    button = _environment_button()
+    button.coordinator.client.check_container_updates.side_effect = DockhandApiError(
+        "Registry check failed"
+    )
+
+    with pytest.raises(HomeAssistantError) as raised:
+        await button.async_press()
+
+    assert raised.value.translation_key == "image_update_check_failed"
+    button.coordinator.async_request_refresh.assert_not_awaited()
+
+
+async def test_environment_check_button_rejects_disappeared_environment() -> None:
+    """A stale entity cannot check an environment absent from the snapshot."""
+    button = _environment_button()
+    button.coordinator.data["environments"].clear()
+
+    assert not button.available
+    with pytest.raises(HomeAssistantError) as raised:
+        await button.async_press()
+
+    assert raised.value.translation_key == "environment_not_available"
+    button.coordinator.client.check_container_updates.assert_not_awaited()
 
 
 def test_stack_with_malformed_details_is_safe_and_unknown() -> None:

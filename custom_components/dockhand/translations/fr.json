@@ -72,6 +72,15 @@
     },
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
+    },
+    "image_update_not_available": {
+      "message": "Aucune mise à jour d’image en attente n’est disponible pour le conteneur {container}"
+    },
+    "environment_not_available": {
+      "message": "L’environnement {environment} n’est pas disponible"
+    },
+    "image_update_check_failed": {
+      "message": "Échec de la recherche de mises à jour d’images pour l’environnement {environment} : {error}"
     }
   },
   "entity": {
@@ -140,6 +149,9 @@
       },
       "stack_problem": {
         "name": "Problem"
+      },
+      "image_update_available": {
+        "name": "Mise à jour d’image disponible"
       }
     },
     "button": {
@@ -160,6 +172,9 @@
       },
       "update": {
         "name": "Mettre à jour l'image"
+      },
+      "check_image_updates": {
+        "name": "Rechercher les mises à jour d’images"
       }
     }
   }

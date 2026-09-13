@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented here. Releases use `vMAJOR.MINOR.PATCH` Git tags.
 
+## [Unreleased]
+
+## [1.3.0] - 2026-09-13
+
+### Added
+
+- On-demand container live logs through Dockhand SSE, an admin-only Home Assistant WebSocket subscription, and a responsive Lovelace custom card.
+- Chunk-safe SSE parsing for LF/CRLF streams, JSON event payloads, heartbeats, split UTF-8/TCP chunks and final unterminated events.
+- Bounded browser log buffers, pause/resume, local clear, auto-scroll handling, reconnect support and distinct stderr styling.
+- Lifecycle and security tests covering unsubscribe, config-entry unload, concurrent viewers, strict target validation and sanitized upstream errors.
+- Dockhand-native image-update detection through its persisted pending-update endpoint, exposed as one binary sensor per container.
+- An environment-level **Check image updates** button that delegates fresh registry checks to Dockhand.
+- API, coordinator and entity tests for pending updates, multi-environment isolation, container recreation, rate limits and action refreshes.
+
+### Changed
+
+- Container image-update buttons are now available only when Dockhand reports a pending update; successful actions immediately refresh the coordinator.
+- Pending-update endpoint failures are isolated from normal container, stack and statistics refreshes.
+
+### Security
+
+- Live log contents remain transient: they are not polled, recorded, added to entities or written to integration logs, and Dockhand credentials remain backend-only.
+
 ## [1.2.0] - 2026-08-25
 
 ### Added
@@ -44,5 +67,6 @@ Create a full Home Assistant backup before upgrading from 1.1.x. The registry mi
 
 - Initial published Dockhand integration release.
 
+[1.3.0]: https://github.com/cgfm/dockhand-hacs/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/cgfm/dockhand-hacs/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/cgfm/dockhand-hacs/releases/tag/v1.1.0

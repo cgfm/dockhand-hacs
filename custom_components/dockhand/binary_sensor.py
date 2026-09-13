@@ -14,7 +14,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DATA_IMAGE_UPDATE_STATUS, DATA_IMAGE_UPDATES, DOMAIN
 from .coordinator import DockhandDataUpdateCoordinator
 from .identity import (
     entity_unique_id,
@@ -47,6 +47,9 @@ async def async_setup_entry(
         entities.append(
             DockhandContainerRunningSensor(coordinator, unique_key, container_info)
         )
+        entities.append(
+            DockhandContainerImageUpdateSensor(coordinator, unique_key, container_info)
+        )
 
     for stack_key, stack_info in coordinator.data.get("stacks", {}).items():
         entities.append(DockhandStackActiveSensor(coordinator, stack_key, stack_info))
@@ -71,6 +74,11 @@ async def async_setup_entry(
             container_info = coordinator.data["containers"][unique_key]
             new_entities.append(
                 DockhandContainerRunningSensor(coordinator, unique_key, container_info)
+            )
+            new_entities.append(
+                DockhandContainerImageUpdateSensor(
+                    coordinator, unique_key, container_info
+                )
             )
 
         current_stack_keys = set(coordinator.data.get("stacks", {}).keys())
@@ -152,10 +160,81 @@ class DockhandContainerRunningSensor(
         if not container:
             return {}
         return {
-            "container_id": container.get("id", "")[:12],
+            "container_id": str(container.get("id", ""))[:12],
+            "entry_id": self.coordinator.config_entry.entry_id,
+            "environment_id": self._env_id,
             "status": container.get("status", ""),
             "image": container.get("image", ""),
         }
+
+
+class DockhandContainerImageUpdateSensor(
+    CoordinatorEntity[DockhandDataUpdateCoordinator], BinarySensorEntity
+):
+    """Binary sensor indicating a Dockhand-persisted image update."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "image_update_available"
+    _attr_icon = "mdi:package-up"
+
+    def __init__(
+        self,
+        coordinator: DockhandDataUpdateCoordinator,
+        unique_key: str,
+        container_info: dict[str, Any],
+    ) -> None:
+        """Initialize the image update binary sensor."""
+        super().__init__(coordinator)
+        self._unique_key = unique_key
+        self._container_name = container_info.get("name", "unknown").lstrip("/")
+
+        self._attr_unique_id = entity_unique_id(unique_key, "image_update_available")
+        self._attr_device_info = _with_parent(
+            DeviceInfo(
+                identifiers={(DOMAIN, unique_key)},
+                name=self._container_name,
+                manufacturer="Dockhand",
+                model="Docker Container",
+                sw_version=container_info.get("image", ""),
+            ),
+            container_info.get("via_device_id"),
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return whether cached update status loaded for this environment."""
+        container = self.coordinator.data.get("containers", {}).get(self._unique_key)
+        if not self.coordinator.last_update_success or not container:
+            return False
+        return (
+            self.coordinator.data.get(DATA_IMAGE_UPDATE_STATUS, {}).get(
+                container.get("environment_id")
+            )
+            is True
+        )
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return whether Dockhand reports a pending image update."""
+        if not self.available:
+            return None
+        update = self.coordinator.data.get(DATA_IMAGE_UPDATES, {}).get(self._unique_key)
+        return bool(update and update.get("available") is True)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return only compact, non-sensitive pending update metadata."""
+        if not self.available:
+            return {}
+        update = self.coordinator.data.get(DATA_IMAGE_UPDATES, {}).get(self._unique_key)
+        if not isinstance(update, dict):
+            return {}
+        attributes: dict[str, Any] = {}
+        if image := update.get("current_image"):
+            attributes["image"] = image
+        if checked_at := update.get("checked_at"):
+            attributes["checked_at"] = checked_at
+        return attributes
 
 
 class DockhandStackActiveSensor(
