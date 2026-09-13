@@ -4,7 +4,7 @@
   "codeowners": ["@cgfm"],
   "config_flow": true,
   "documentation": "https://github.com/cgfm/dockhand-hacs",
-  "dependencies": ["frontend", "websocket_api"],
+  "dependencies": ["frontend", "http", "websocket_api"],
   "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/cgfm/dockhand-hacs/issues",
