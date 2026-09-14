@@ -3,6 +3,8 @@ const DEFAULT_TAIL = 200;
 const DEFAULT_MAX_LINES = 3000;
 const MAX_TAIL = 5000;
 const MAX_VISIBLE_LINES = 5000;
+const DOCUMENTATION_URL =
+  "https://github.com/cgfm/dockhand-hacs#dashboard-card-live-container-logs";
 
 const TEXT = {
   de: {
@@ -45,7 +47,106 @@ const TEXT = {
   },
 };
 
+const isDockhandContainerEntity = (hass, entityId) => {
+  const attributes = hass?.states?.[entityId]?.attributes;
+  if (!attributes) return false;
+  const envId = attributes.environment_id ?? attributes.env_id;
+  return Boolean(
+    attributes.entry_id &&
+      attributes.container_id &&
+      envId !== undefined &&
+      envId !== null,
+  );
+};
+
 class DockhandLogsCard extends HTMLElement {
+  static getStubConfig(hass, entities = [], entitiesFallback = []) {
+    const candidates = [
+      ...entities,
+      ...entitiesFallback,
+      ...Object.keys(hass?.states || {}),
+    ];
+    const entity = candidates.find((entityId) =>
+      isDockhandContainerEntity(hass, entityId),
+    );
+    return {
+      entity: entity || "",
+      tail: DEFAULT_TAIL,
+      max_lines: DEFAULT_MAX_LINES,
+    };
+  }
+
+  static getConfigForm() {
+    const german = document.documentElement.lang?.startsWith("de");
+    const labels = german
+      ? {
+          tail: "Anfängliche Logzeilen",
+          max_lines: "Maximal gepufferte Zeilen",
+          entityHelp: "Sensor eines Dockhand-Containers auswählen.",
+          entityRequired:
+            "Der visuelle Editor benötigt eine Dockhand-Container-Entität.",
+        }
+      : {
+          tail: "Initial log lines",
+          max_lines: "Maximum buffered lines",
+          entityHelp: "Select a sensor belonging to a Dockhand container.",
+          entityRequired:
+            "The visual editor requires a Dockhand container entity.",
+        };
+    return {
+      schema: [
+        {
+          name: "entity",
+          required: true,
+          selector: {
+            entity: {
+              filter: {
+                domain: "sensor",
+                integration: "dockhand",
+                device: {
+                  manufacturer: "Dockhand",
+                  model: "Docker Container",
+                },
+              },
+            },
+          },
+        },
+        { name: "name", selector: { text: {} } },
+        {
+          type: "grid",
+          name: "",
+          flatten: true,
+          column_min_width: "160px",
+          schema: [
+            {
+              name: "tail",
+              selector: {
+                number: { min: 1, max: MAX_TAIL, step: 1, mode: "box" },
+              },
+            },
+            {
+              name: "max_lines",
+              selector: {
+                number: {
+                  min: 100,
+                  max: MAX_VISIBLE_LINES,
+                  step: 100,
+                  mode: "box",
+                },
+              },
+            },
+          ],
+        },
+      ],
+      computeLabel: (schema) => labels[schema.name],
+      computeHelper: (schema) =>
+        schema.name === "entity" ? labels.entityHelp : undefined,
+      assertConfig: (config) => {
+        if (!config.entity) throw new Error(labels.entityRequired);
+      },
+    };
+  }
+
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -704,5 +805,15 @@ if (!window.customCards.some((card) => card.type === CARD_TAG)) {
     name: "Dockhand Logs Card",
     description: "On-demand live logs for a Dockhand container",
     preview: false,
+    documentationURL: DOCUMENTATION_URL,
+    getEntitySuggestion: (hass, entityId) =>
+      isDockhandContainerEntity(hass, entityId)
+        ? {
+            config: {
+              type: `custom:${CARD_TAG}`,
+              entity: entityId,
+            },
+          }
+        : null,
   });
 }

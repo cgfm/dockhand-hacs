@@ -31,7 +31,7 @@ A local-polling Home Assistant custom integration for monitoring and controlling
 
 ## Features
 
-Version 1.3.0 adds administrator-only, on-demand live container logs and Dockhand-native image-update detection without requiring DIUN. Both features keep Dockhand responsible for Docker access while Home Assistant provides a secure display and explicit user actions.
+Version 1.3.0 adds administrator-only, on-demand live container logs through the discoverable [**Dockhand Logs Card**](#dashboard-card-live-container-logs) and Dockhand-native image-update detection without requiring DIUN. Both features keep Dockhand responsible for Docker access while Home Assistant provides a secure display and explicit user actions.
 
 Each Dockhand environment is represented as a parent device. Stacks and containers are linked to their environment as child devices.
 
@@ -88,11 +88,20 @@ automation:
           message: Paperless has a new container image available.
 ```
 
-### On-demand live logs
+### Dashboard card: live container logs
 
-Dockhand includes a small, mobile-friendly `custom:dockhand-logs-card`. Opening the card creates one Home Assistant WebSocket subscription and one upstream Dockhand SSE connection for that viewer. Closing/removing the card immediately unsubscribes and closes the SSE connection. No log polling runs in the background, and log contents are never written to entity states, attributes, the recorder, diagnostics, or Python logs.
+Available since version 1.3.0, Dockhand includes a small, mobile-friendly **Dockhand Logs Card** (`custom:dockhand-logs-card`). Opening the card creates one Home Assistant WebSocket subscription and one upstream Dockhand SSE connection for that viewer. Closing/removing the card immediately unsubscribes and closes the SSE connection. No log polling runs in the background, and log contents are never written to entity states, attributes, the recorder, diagnostics, or Python logs.
 
-The card is served and registered automatically when the integration loads. Add it to a dashboard with any Dockhand **container** sensor or running binary sensor:
+After installing or updating Dockhand, restart Home Assistant and refresh the browser page. In the Companion App, fully close and reopen the app. Then add the card through the dashboard editor:
+
+1. Open the dashboard, choose **Edit dashboard**, then **Add card**.
+2. Search for **Dockhand Logs Card** in the card list. Alternatively, select a Dockhand container entity first; the card is offered in the **Community** suggestions for compatible entities.
+3. Select any sensor belonging to the desired Dockhand container. The container state sensor is a good default.
+4. Optionally change the displayed name, initial line count (`tail`) and maximum browser buffer (`max_lines`) in the visual editor.
+
+The integration serves and registers the JavaScript module automatically. Do not add a Lovelace resource manually.
+
+You can also add or edit the card in YAML with any Dockhand **container** sensor or running binary sensor:
 
 ```yaml
 type: custom:dockhand-logs-card
@@ -198,7 +207,8 @@ Downloaded diagnostics redact the Dockhand URL, username and password. They cont
 - **Update failed after a recreate:** refresh the integration first. The button always uses the newest runtime ID in the coordinator snapshot, but Dockhand can reject an action when the container changes again between refresh and button press.
 - **A legacy device remains after migration:** inspect the Home Assistant log for an ownership, unique-ID or foreign-entity warning. Do not edit `.storage`; report the sanitized warning and diagnostics in the [issue tracker](https://github.com/cgfm/dockhand-hacs/issues).
 - **A removed device remains:** this is expected during the seven-day safety grace period. A later integration reload/restart evaluates cleanup.
-- **The logs card is unknown:** restart Home Assistant after installing/updating the integration, then reload the frontend or clear the Companion App/browser cache. The module is served at `/dockhand/frontend/dockhand-logs-card.js`; no manual Lovelace resource entry is normally required.
+- **The logs card is missing from the card picker:** restart Home Assistant after installing/updating the integration, then hard-refresh the browser page or fully close and reopen the Companion App. Search for **Dockhand Logs Card** in the card list, or choose a compatible Dockhand container entity and look under **Community**. The module is served at `/dockhand/frontend/dockhand-logs-card.js`; do not add a manual Lovelace resource.
+- **The logs card is unknown in YAML:** first follow the restart and frontend-refresh steps above. If the problem remains, open `/dockhand/frontend/dockhand-logs-card.js` on the same Home Assistant host; a 404 response means the integration files or restart are incomplete.
 - **Live logs require an administrator:** log streams may expose passwords, tokens and personal data written by applications, so non-admin dashboard users cannot subscribe.
 - **Container or environment unavailable:** use a current Dockhand container entity in the card and verify that its environment is selected in the integration options. Explicit Docker runtime IDs can change after a recreate.
 - **Dockhand denied/unavailable:** verify that the configured local Dockhand account can open container logs, the Home Assistant host can reach Dockhand, and any reverse proxy permits long-lived `text/event-stream` responses without buffering or a short read timeout.

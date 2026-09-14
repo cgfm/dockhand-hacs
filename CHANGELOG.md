@@ -4,6 +4,15 @@ All notable changes to this project are documented here. Releases use `vMAJOR.MI
 
 ## [Unreleased]
 
+### Added
+
+- A native visual editor, automatic starter configuration and entity-based **Community** suggestion for the Dockhand Logs Card.
+
+### Changed
+
+- The README now introduces the logs card prominently and documents both the dashboard-editor and YAML setup paths, including frontend cache troubleshooting.
+- The frontend module cache key was bumped so browsers load the updated card after upgrading and restarting Home Assistant.
+
 ## [1.3.0] - 2026-09-13
 
 ### Added

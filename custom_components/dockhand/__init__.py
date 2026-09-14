@@ -45,7 +45,7 @@ type DockhandConfigEntry = ConfigEntry[DockhandDataUpdateCoordinator]
 
 FRONTEND_PATH = Path(__file__).parent / "frontend" / "dockhand-logs-card.js"
 FRONTEND_URL = "/dockhand/frontend/dockhand-logs-card.js"
-FRONTEND_MODULE_URL = f"{FRONTEND_URL}?v=1"
+FRONTEND_MODULE_URL = f"{FRONTEND_URL}?v=2"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
