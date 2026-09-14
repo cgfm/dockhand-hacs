@@ -13,6 +13,8 @@ from homeassistant.helpers.storage import Store
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.dockhand import (
+    CARDS_FRONTEND_MODULE_URL,
+    CARDS_FRONTEND_URL,
     FRONTEND_MODULE_URL,
     FRONTEND_URL,
     async_migrate_entry,
@@ -145,9 +147,12 @@ async def test_setup_reload_and_unload(hass: HomeAssistant) -> None:
         await hass.async_block_till_done()
         assert entry.state is ConfigEntryState.LOADED
         assert FRONTEND_MODULE_URL in hass.data[DATA_EXTRA_MODULE_URL].urls
-        assert FRONTEND_URL in {
+        assert CARDS_FRONTEND_MODULE_URL in hass.data[DATA_EXTRA_MODULE_URL].urls
+        frontend_resources = {
             resource.canonical for resource in hass.http.app.router.resources()
         }
+        assert FRONTEND_URL in frontend_resources
+        assert CARDS_FRONTEND_URL in frontend_resources
         assert (
             len(er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id))
             == 29

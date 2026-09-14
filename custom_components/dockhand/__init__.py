@@ -43,18 +43,30 @@ PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.B
 
 type DockhandConfigEntry = ConfigEntry[DockhandDataUpdateCoordinator]
 
-FRONTEND_PATH = Path(__file__).parent / "frontend" / "dockhand-logs-card.js"
+FRONTEND_DIRECTORY = Path(__file__).parent / "frontend"
+FRONTEND_PATH = FRONTEND_DIRECTORY / "dockhand-logs-card.js"
 FRONTEND_URL = "/dockhand/frontend/dockhand-logs-card.js"
-FRONTEND_MODULE_URL = f"{FRONTEND_URL}?v=2"
+FRONTEND_MODULE_URL = f"{FRONTEND_URL}?v=3"
+CARDS_FRONTEND_PATH = FRONTEND_DIRECTORY / "dockhand-cards.js"
+CARDS_FRONTEND_URL = "/dockhand/frontend/dockhand-cards.js"
+CARDS_FRONTEND_MODULE_URL = f"{CARDS_FRONTEND_URL}?v=1"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up integration-wide WebSocket and frontend resources."""
     async_setup_websocket(hass)
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(FRONTEND_URL, str(FRONTEND_PATH), cache_headers=False)]
+        [
+            StaticPathConfig(FRONTEND_URL, str(FRONTEND_PATH), cache_headers=False),
+            StaticPathConfig(
+                CARDS_FRONTEND_URL,
+                str(CARDS_FRONTEND_PATH),
+                cache_headers=False,
+            ),
+        ]
     )
     add_extra_js_url(hass, FRONTEND_MODULE_URL)
+    add_extra_js_url(hass, CARDS_FRONTEND_MODULE_URL)
     return True
 
 

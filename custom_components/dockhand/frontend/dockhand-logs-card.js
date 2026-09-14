@@ -240,6 +240,14 @@ class DockhandLogsCard extends HTMLElement {
     return { columns: 12, rows: this._open ? 6 : 2, min_rows: 2 };
   }
 
+  openLogs() {
+    this._setOpen(true);
+  }
+
+  closeLogs() {
+    this._setOpen(false);
+  }
+
   _language() {
     return this._hass?.language === "de" ? "de" : "en";
   }

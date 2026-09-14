@@ -7,6 +7,9 @@ All notable changes to this project are documented here. Releases use `vMAJOR.MI
 ### Added
 
 - A native visual editor, automatic starter configuration and entity-based **Community** suggestion for the Dockhand Logs Card.
+- A **Dockhand Overview Card** with environment totals, problem/update/stack filters, metrics and guarded container actions.
+- A **Dockhand Container Card** with status, health, metrics, lifecycle/update actions and an on-demand embedded live-log viewer.
+- A **Dockhand Stack Card** with health, container counts and affected-container details.
 
 ### Changed
 
