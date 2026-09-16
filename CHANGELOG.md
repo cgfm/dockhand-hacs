@@ -15,6 +15,7 @@ All notable changes to this project are documented here. Releases use `vMAJOR.MI
 
 - The README now introduces the logs card prominently and documents both the dashboard-editor and YAML setup paths, including frontend cache troubleshooting.
 - The frontend module cache key was bumped so browsers load the updated card after upgrading and restarting Home Assistant.
+- The Overview Card can now be configured for either containers or stacks and can constrain its result list to an internally scrollable maximum height.
 
 ## [1.3.0] - 2026-09-13
 

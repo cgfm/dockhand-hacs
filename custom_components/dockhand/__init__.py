@@ -49,7 +49,7 @@ FRONTEND_URL = "/dockhand/frontend/dockhand-logs-card.js"
 FRONTEND_MODULE_URL = f"{FRONTEND_URL}?v=3"
 CARDS_FRONTEND_PATH = FRONTEND_DIRECTORY / "dockhand-cards.js"
 CARDS_FRONTEND_URL = "/dockhand/frontend/dockhand-cards.js"
-CARDS_FRONTEND_MODULE_URL = f"{CARDS_FRONTEND_URL}?v=1"
+CARDS_FRONTEND_MODULE_URL = f"{CARDS_FRONTEND_URL}?v=2"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:

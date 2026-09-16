@@ -96,7 +96,7 @@ All cards have a visual editor and are suggested under **Community** when a comp
 
 ### Dockhand Overview Card
 
-`custom:dockhand-overview-card` summarizes one Dockhand environment. It shows running/stopped/problem/update totals and switchable **All**, **Problems**, **Updates** and **Stacks** views. Container actions use the integration's existing guarded button entities; stop, restart and update require confirmation. The refresh icon invokes the environment's **Check image updates** button.
+`custom:dockhand-overview-card` summarizes either the containers or the stacks of one Dockhand environment. In container mode it shows running/stopped/problem/update totals and **All**, **Problems** and **Updates** views. In stack mode it shows active/inactive/problem totals and **All** and **Problems** views. Container actions use the integration's existing guarded button entities; stop, restart and update require confirmation. The refresh icon invokes the environment's **Check image updates** button.
 
 Choose any Dockhand environment sensor in the visual editor, or use YAML:
 
@@ -104,12 +104,24 @@ Choose any Dockhand environment sensor in the visual editor, or use YAML:
 type: custom:dockhand-overview-card
 entity: sensor.dockhand_container_count
 name: Docker
+resource_type: containers
 default_view: problems
+max_height: 480
 show_metrics: true
 show_actions: true
 ```
 
-`default_view` accepts `all`, `problems`, `updates` or `stacks`. Stopped and unhealthy containers appear under **Problems**; an update appears only when Dockhand reports it as pending.
+`resource_type` accepts `containers` or `stacks`. For containers, `default_view` accepts `all`, `problems` or `updates`; for stacks it accepts `all` or `problems`. The optional `max_height` limits the list to 160–2000 pixels and adds an internal vertical scrollbar; omit it for natural card height. Existing configurations with `default_view: stacks` continue to select stack mode. Stopped and unhealthy containers appear under **Problems**; an update appears only when Dockhand reports it as pending.
+
+For a compact stack overview:
+
+```yaml
+type: custom:dockhand-overview-card
+entity: sensor.dockhand_container_count
+resource_type: stacks
+default_view: all
+max_height: 360
+```
 
 ### Dockhand Container Card
 

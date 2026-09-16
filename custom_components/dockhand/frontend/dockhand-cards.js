@@ -407,7 +407,9 @@ class DockhandOverviewCard extends DockhandBaseCard {
           entitiesFallback,
           MODELS.environment,
         ) || "",
+      resource_type: "containers",
       default_view: "all",
+      max_height: 480,
       show_metrics: true,
       show_actions: true,
     };
@@ -419,17 +421,29 @@ class DockhandOverviewCard extends DockhandBaseCard {
       ? {
           entity: "Umgebung",
           name: "Titel",
+          resource_type: "Angezeigte Ressourcen",
           default_view: "Startansicht",
+          max_height: "Maximale Listenhöhe",
           show_metrics: "Metriken anzeigen",
-          show_actions: "Aktionen anzeigen",
+          show_actions: "Container-Aktionen anzeigen",
+          defaultViewHelp:
+            "Updates ist nur im Container-Modus verfügbar.",
+          maxHeightHelp:
+            "Optional in Pixeln. Bei kleineren Höhen wird die Liste scrollbar.",
           required: "Eine Dockhand-Umgebungsentität ist erforderlich.",
         }
       : {
           entity: "Environment",
           name: "Title",
+          resource_type: "Displayed resources",
           default_view: "Initial view",
+          max_height: "Maximum list height",
           show_metrics: "Show metrics",
-          show_actions: "Show actions",
+          show_actions: "Show container actions",
+          defaultViewHelp:
+            "Updates is available only in container mode.",
+          maxHeightHelp:
+            "Optional, in pixels. The list scrolls when it exceeds this height.",
           required: "A Dockhand environment entity is required.",
         };
     return {
@@ -449,6 +463,21 @@ class DockhandOverviewCard extends DockhandBaseCard {
         },
         { name: "name", selector: { text: {} } },
         {
+          name: "resource_type",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                {
+                  value: "containers",
+                  label: german ? "Container" : "Containers",
+                },
+                { value: "stacks", label: "Stacks" },
+              ],
+            },
+          },
+        },
+        {
           name: "default_view",
           selector: {
             select: {
@@ -457,9 +486,14 @@ class DockhandOverviewCard extends DockhandBaseCard {
                 { value: "all", label: german ? "Alle" : "All" },
                 { value: "problems", label: german ? "Probleme" : "Problems" },
                 { value: "updates", label: "Updates" },
-                { value: "stacks", label: "Stacks" },
               ],
             },
+          },
+        },
+        {
+          name: "max_height",
+          selector: {
+            number: { min: 160, max: 2000, step: 20, mode: "box" },
           },
         },
         {
@@ -473,6 +507,11 @@ class DockhandOverviewCard extends DockhandBaseCard {
         },
       ],
       computeLabel: (schema) => labels[schema.name],
+      computeHelper: (schema) => {
+        if (schema.name === "default_view") return labels.defaultViewHelp;
+        if (schema.name === "max_height") return labels.maxHeightHelp;
+        return undefined;
+      },
       assertConfig: (config) => {
         if (!config.entity) throw new Error(labels.required);
       },
@@ -486,13 +525,37 @@ class DockhandOverviewCard extends DockhandBaseCard {
 
   setConfig(config) {
     if (!config?.entity) throw new Error("Define a Dockhand environment entity");
+    const legacyStackView =
+      !config.resource_type && config.default_view === "stacks";
+    const resourceType =
+      config.resource_type || (legacyStackView ? "stacks" : "containers");
+    if (!["containers", "stacks"].includes(resourceType)) {
+      throw new Error("resource_type must be containers or stacks");
+    }
     const views = ["all", "problems", "updates", "stacks"];
     if (config.default_view && !views.includes(config.default_view)) {
       throw new Error("default_view must be all, problems, updates, or stacks");
     }
+    const maxHeight = config.max_height;
+    if (
+      maxHeight !== undefined &&
+      maxHeight !== null &&
+      (!Number.isInteger(maxHeight) || maxHeight < 160 || maxHeight > 2000)
+    ) {
+      throw new Error("max_height must be an integer from 160 to 2000");
+    }
+    let defaultView = config.default_view || "all";
+    if (
+      defaultView === "stacks" ||
+      (resourceType === "stacks" && defaultView === "updates")
+    ) {
+      defaultView = "all";
+    }
     this._config = {
       ...config,
-      default_view: config.default_view || "all",
+      resource_type: resourceType,
+      default_view: defaultView,
+      max_height: maxHeight ?? undefined,
       show_metrics: config.show_metrics !== false,
       show_actions: config.show_actions !== false,
     };
@@ -528,6 +591,9 @@ class DockhandOverviewCard extends DockhandBaseCard {
     const running = containers.filter((item) => item.isRunning).length;
     const problems = containers.filter((item) => item.hasProblem).length;
     const updates = containers.filter((item) => item.hasUpdate).length;
+    const activeStacks = stacks.filter((item) => isOn(item.active)).length;
+    const problemStacks = stacks.filter((item) => item.hasProblem).length;
+    const stackMode = this._config.resource_type === "stacks";
     const environmentRoles = entitiesForDevice(this._hass, environment.id);
 
     const style = createElement("style", "", `${COMMON_STYLE}
@@ -538,7 +604,11 @@ class DockhandOverviewCard extends DockhandBaseCard {
         color: var(--secondary-text-color); background: transparent; white-space: nowrap;
       }
       .tab.active { color: var(--primary-text-color); background: var(--secondary-background-color); }
-      .rows { border-top: 1px solid var(--divider-color); }
+      .rows {
+        border-top: 1px solid var(--divider-color);
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+      }
       .row {
         display: grid; grid-template-columns: minmax(130px, 1fr) minmax(120px, auto) auto;
         gap: 12px; align-items: center; min-height: 58px; padding: 6px 10px 6px 16px;
@@ -567,11 +637,17 @@ class DockhandOverviewCard extends DockhandBaseCard {
       ),
     );
     titleWrap.append(
-      createElement("div", "subtitle", `${containers.length} ${this._t("containers")}`),
+      createElement(
+        "div",
+        "subtitle",
+        stackMode
+          ? `${stacks.length} ${this._t("stacks")}`
+          : `${containers.length} ${this._t("containers")}`,
+      ),
     );
     header.append(icon, titleWrap);
     const checkEntity = entityForRole(environmentRoles, "check_image_updates");
-    if (checkEntity) {
+    if (checkEntity && !stackMode) {
       header.append(
         iconButton("mdi:refresh", this._t("checkUpdates"), async () => {
           try {
@@ -591,16 +667,39 @@ class DockhandOverviewCard extends DockhandBaseCard {
     card.append(header);
 
     const summary = createElement("div", "summary chips");
-    summary.append(
-      this._chip("mdi:play-circle", `${running} ${this._t("running")}`, "good"),
-      this._chip("mdi:stop-circle", `${containers.length - running} ${this._t("stopped")}`),
-      this._chip("mdi:alert-circle", `${problems} ${this._t("problems")}`, problems ? "bad" : ""),
-      this._chip("mdi:update", `${updates} ${this._t("updates")}`, updates ? "warn" : ""),
-    );
+    if (stackMode) {
+      summary.append(
+        this._chip(
+          "mdi:check-circle",
+          `${activeStacks} ${this._t("active")}`,
+          "good",
+        ),
+        this._chip(
+          "mdi:stop-circle",
+          `${stacks.length - activeStacks} ${this._t("inactive")}`,
+        ),
+        this._chip(
+          "mdi:alert-circle",
+          `${problemStacks} ${this._t("problems")}`,
+          problemStacks ? "bad" : "",
+        ),
+      );
+    } else {
+      summary.append(
+        this._chip("mdi:play-circle", `${running} ${this._t("running")}`, "good"),
+        this._chip("mdi:stop-circle", `${containers.length - running} ${this._t("stopped")}`),
+        this._chip("mdi:alert-circle", `${problems} ${this._t("problems")}`, problems ? "bad" : ""),
+        this._chip("mdi:update", `${updates} ${this._t("updates")}`, updates ? "warn" : ""),
+      );
+    }
     card.append(summary);
 
     const tabs = createElement("div", "tabs");
-    for (const view of ["all", "problems", "updates", "stacks"]) {
+    const availableViews = stackMode
+      ? ["all", "problems"]
+      : ["all", "problems", "updates"];
+    if (!availableViews.includes(this._activeView)) this._activeView = "all";
+    for (const view of availableViews) {
       const tab = createElement(
         "button",
         `tab${view === this._activeView ? " active" : ""}`,
@@ -616,9 +715,19 @@ class DockhandOverviewCard extends DockhandBaseCard {
     card.append(tabs);
 
     const rows = createElement("div", "rows");
-    if (this._activeView === "stacks") {
-      stacks.forEach((item) => rows.append(this._stackRow(item)));
-      if (!stacks.length) rows.append(createElement("div", "message", this._t("noItems")));
+    rows.setAttribute("role", "region");
+    rows.setAttribute("aria-label", this._t(stackMode ? "stacks" : "containers"));
+    if (this._config.max_height) {
+      rows.style.maxHeight = `${this._config.max_height}px`;
+      rows.style.overflowY = "auto";
+      rows.tabIndex = 0;
+    }
+    if (stackMode) {
+      const filtered = stacks.filter(
+        (item) => this._activeView !== "problems" || item.hasProblem,
+      );
+      filtered.forEach((item) => rows.append(this._stackRow(item)));
+      if (!filtered.length) rows.append(createElement("div", "message", this._t("noItems")));
     } else {
       const filtered = containers.filter((item) => {
         if (this._activeView === "problems") return item.hasProblem;
@@ -681,10 +790,12 @@ class DockhandOverviewCard extends DockhandBaseCard {
     );
     row.append(main);
     const metrics = createElement("div", "metrics");
-    metrics.append(
-      createElement("span", "", `${formattedState(this._hass, stateForRole(this._hass, info.roles, "stack_running_count"))} ${this._t("running")}`),
-      createElement("span", "", `${formattedState(this._hass, stateForRole(this._hass, info.roles, "stack_stopped_count"))} ${this._t("stopped")}`),
-    );
+    if (this._config.show_metrics) {
+      metrics.append(
+        createElement("span", "", `${formattedState(this._hass, stateForRole(this._hass, info.roles, "stack_running_count"))} ${this._t("running")}`),
+        createElement("span", "", `${formattedState(this._hass, stateForRole(this._hass, info.roles, "stack_stopped_count"))} ${this._t("stopped")}`),
+      );
+    }
     row.append(metrics, createElement("div"));
     row.addEventListener("click", () =>
       this._moreInfo(primaryEntity(info.roles, ["stack_status", "stack_active"])),
@@ -1083,6 +1194,7 @@ registerCard("dockhand-overview-card", DockhandOverviewCard, {
           config: {
             type: "custom:dockhand-overview-card",
             entity: entityId,
+            resource_type: "containers",
             default_view: "all",
           },
         }
