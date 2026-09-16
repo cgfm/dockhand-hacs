@@ -17,6 +17,10 @@ All notable changes to this project are documented here. Releases use `vMAJOR.MI
 - The frontend module cache key was bumped so browsers load the updated card after upgrading and restarting Home Assistant.
 - The Overview Card can now be configured for either containers or stacks and can constrain its result list to an internally scrollable maximum height.
 
+### Fixed
+
+- Stack and Container cards now stay within their assigned Sections grid columns, scroll wide action rows internally and rely on Home Assistant's automatic row height without conflicting minimum-row hints.
+
 ## [1.3.0] - 2026-09-13
 
 ### Added

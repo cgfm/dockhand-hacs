@@ -86,27 +86,46 @@ const TEXT = {
 };
 
 const COMMON_STYLE = `
-  :host { display: block; }
+  :host {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    box-sizing: border-box;
+  }
   ha-card {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    box-sizing: border-box;
     color: var(--primary-text-color);
     background: var(--ha-card-background, var(--card-background-color));
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
   .header {
     display: flex;
     align-items: center;
     gap: 12px;
+    min-width: 0;
     padding: 16px 16px 10px;
   }
   .header ha-icon { color: var(--primary-color); }
   .title { min-width: 0; flex: 1; font-size: 20px; font-weight: 500; }
   .subtitle { color: var(--secondary-text-color); font-size: 12px; margin-top: 2px; }
   .content { padding: 6px 16px 16px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; min-width: 0; }
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     min-height: 26px;
     padding: 0 9px;
     border-radius: 14px;
@@ -568,7 +587,7 @@ class DockhandOverviewCard extends DockhandBaseCard {
   }
 
   getGridOptions() {
-    return { columns: 12, rows: "auto", min_rows: 3 };
+    return { columns: 12, rows: "auto", min_columns: 6 };
   }
 
   _render() {
@@ -867,7 +886,7 @@ class DockhandContainerCard extends DockhandBaseCard {
   }
 
   getGridOptions() {
-    return { columns: 6, rows: "auto", min_rows: 3 };
+    return { columns: 6, rows: "auto", min_columns: 6 };
   }
 
   _render() {
@@ -881,11 +900,11 @@ class DockhandContainerCard extends DockhandBaseCard {
 
     const style = createElement("style", "", `${COMMON_STYLE}
       .status { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 16px 12px; }
-      .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 12px 16px; border-top: 1px solid var(--divider-color); }
+      .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-width: 0; padding: 12px 16px; border-top: 1px solid var(--divider-color); }
       .metric { min-width: 0; }
       .metric-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .actions { display: flex; align-items: center; gap: 2px; padding: 8px 10px; border-top: 1px solid var(--divider-color); }
-      .actions .spacer { flex: 1; }
+      .actions { display: flex; align-items: center; gap: 2px; min-width: 0; padding: 8px 10px; border-top: 1px solid var(--divider-color); overflow-x: auto; scrollbar-width: thin; }
+      .actions .spacer { flex: 1 0 8px; }
       .logs { padding: 0 12px 12px; }
       .logs dockhand-logs-card { --ha-card-border-width: 0; }
     `);
@@ -1026,7 +1045,7 @@ class DockhandStackCard extends DockhandBaseCard {
   }
 
   getGridOptions() {
-    return { columns: 6, rows: "auto", min_rows: 2 };
+    return { columns: 6, rows: "auto", min_columns: 6 };
   }
 
   _render() {
@@ -1043,12 +1062,13 @@ class DockhandStackCard extends DockhandBaseCard {
 
     const style = createElement("style", "", `${COMMON_STYLE}
       .status { padding: 0 16px 14px; }
-      .counts { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--divider-color); }
-      .count { padding: 13px 16px; text-align: center; }
+      .counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); min-width: 0; border-top: 1px solid var(--divider-color); }
+      .count { min-width: 0; padding: 13px 8px; text-align: center; overflow-wrap: anywhere; }
       .count + .count { border-left: 1px solid var(--divider-color); }
       .count strong { display: block; font-size: 20px; }
-      .problems { padding: 12px 16px 16px; border-top: 1px solid var(--divider-color); }
+      .problems { min-width: 0; padding: 12px 16px 16px; border-top: 1px solid var(--divider-color); overflow: hidden; }
       .problems ul { margin: 7px 0 0; padding-left: 20px; }
+      .problems li { overflow-wrap: anywhere; }
     `);
     const card = createElement("ha-card");
     const header = createElement("div", "header");

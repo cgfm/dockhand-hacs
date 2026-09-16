@@ -94,6 +94,8 @@ Dockhand registers four cards automatically. After installing or updating the in
 
 All cards have a visual editor and are suggested under **Community** when a compatible Dockhand entity is selected. They resolve related entities through Home Assistant's device registry, so renamed entity IDs and recreated containers do not need hard-coded mappings.
 
+In a Sections view, the Container and Stack cards request six columns with automatic row height and do not allow a narrower resize. Their content is constrained to the assigned grid area; if a dashboard configuration explicitly gives them a fixed row count, excess vertical content scrolls inside the card instead of overlapping the following card.
+
 ### Dockhand Overview Card
 
 `custom:dockhand-overview-card` summarizes either the containers or the stacks of one Dockhand environment. In container mode it shows running/stopped/problem/update totals and **All**, **Problems** and **Updates** views. In stack mode it shows active/inactive/problem totals and **All** and **Problems** views. Container actions use the integration's existing guarded button entities; stop, restart and update require confirmation. The refresh icon invokes the environment's **Check image updates** button.
