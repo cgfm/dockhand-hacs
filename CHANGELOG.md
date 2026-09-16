@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Releases use `vMAJOR.MI
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-16
+
 ### Added
 
 - A native visual editor, automatic starter configuration and entity-based **Community** suggestion for the Dockhand Logs Card.
@@ -84,6 +86,8 @@ Create a full Home Assistant backup before upgrading from 1.1.x. The registry mi
 
 - Initial published Dockhand integration release.
 
+[Unreleased]: https://github.com/cgfm/dockhand-hacs/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/cgfm/dockhand-hacs/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/cgfm/dockhand-hacs/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/cgfm/dockhand-hacs/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/cgfm/dockhand-hacs/releases/tag/v1.1.0

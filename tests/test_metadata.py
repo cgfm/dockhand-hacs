@@ -37,7 +37,7 @@ def test_manifest_and_hacs_metadata_are_release_consistent() -> None:
     manifest = _json(INTEGRATION / "manifest.json")
     hacs = _json(ROOT / "hacs.json")
 
-    assert manifest["version"] == "1.3.0"
+    assert manifest["version"] == "1.4.0"
     assert manifest["documentation"] == EXPECTED_REPOSITORY
     assert manifest["issue_tracker"] == f"{EXPECTED_REPOSITORY}/issues"
     assert manifest["requirements"] == []

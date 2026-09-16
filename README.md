@@ -31,7 +31,7 @@ A local-polling Home Assistant custom integration for monitoring and controlling
 
 ## Features
 
-Version 1.3.0 adds administrator-only, on-demand live container logs through the discoverable [**Dockhand Logs Card**](#dashboard-card-live-container-logs) and Dockhand-native image-update detection without requiring DIUN. Both features keep Dockhand responsible for Docker access while Home Assistant provides a secure display and explicit user actions.
+Version 1.4.0 adds a discoverable dashboard suite with dedicated environment, container and stack cards, visual editors and Sections-aware sizing. Version 1.3.0 introduced administrator-only, on-demand live container logs through the [**Dockhand Logs Card**](#dashboard-card-live-container-logs) and Dockhand-native image-update detection without requiring DIUN. These features keep Dockhand responsible for Docker access while Home Assistant provides a secure display and explicit user actions.
 
 Each Dockhand environment is represented as a parent device. Stacks and containers are linked to their environment as child devices.
 
