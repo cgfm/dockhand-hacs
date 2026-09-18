@@ -4,6 +4,18 @@ All notable changes to this project are documented here. Releases use `vMAJOR.MI
 
 ## [Unreleased]
 
+### Added
+
+- Native stack **Start**, **Stop**, **Restart** and **Redeploy** button entities, exposed in both the Stack Card and the Overview Card's stack mode.
+
+### Changed
+
+- Stack actions are state-aware, refresh the coordinator after completion and keep credentials and Dockhand API access in the Home Assistant backend.
+
+### Fixed
+
+- All four dashboard cards now require the full 12-column Sections width. Container and Stack additionally advertise their actual 12×6 and 12×3 sizes and remain constrained to the assigned grid height.
+
 ## [1.4.0] - 2026-09-16
 
 ### Added

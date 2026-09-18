@@ -73,6 +73,12 @@
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
     },
+    "stack_not_available": {
+      "message": "La pila {stack} no está disponible"
+    },
+    "stack_action_failed": {
+      "message": "No se pudo ejecutar {action} en la pila {stack}: {error}"
+    },
     "image_update_not_available": {
       "message": "No hay ninguna actualización de imagen pendiente para el contenedor {container}"
     },
@@ -169,6 +175,9 @@
       },
       "restart": {
         "name": "Reiniciar"
+      },
+      "redeploy": {
+        "name": "Volver a desplegar"
       },
       "update": {
         "name": "Actualizar imagen"

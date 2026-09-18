@@ -73,6 +73,12 @@
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
     },
+    "stack_not_available": {
+      "message": "Stack {stack} is not available"
+    },
+    "stack_action_failed": {
+      "message": "Failed to {action} stack {stack}: {error}"
+    },
     "image_update_not_available": {
       "message": "No pending image update is available for container {container}"
     },
@@ -169,6 +175,9 @@
       },
       "restart": {
         "name": "Restart"
+      },
+      "redeploy": {
+        "name": "Redeploy"
       },
       "update": {
         "name": "Update image"

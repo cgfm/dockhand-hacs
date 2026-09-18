@@ -73,6 +73,12 @@
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
     },
+    "stack_not_available": {
+      "message": "La stack {stack} n’est pas disponible"
+    },
+    "stack_action_failed": {
+      "message": "Échec de l’action {action} sur la stack {stack} : {error}"
+    },
     "image_update_not_available": {
       "message": "Aucune mise à jour d’image en attente n’est disponible pour le conteneur {container}"
     },
@@ -169,6 +175,9 @@
       },
       "restart": {
         "name": "Redémarrer"
+      },
+      "redeploy": {
+        "name": "Redéployer"
       },
       "update": {
         "name": "Mettre à jour l'image"

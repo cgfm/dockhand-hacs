@@ -748,6 +748,84 @@ async def test_unsupported_action_is_rejected() -> None:
         await client.close()
 
 
+async def test_stack_actions_use_expected_routes_and_redeploy_defaults(
+    aiohttp_server: Any, socket_enabled: None
+) -> None:
+    """Stack actions request JSON and redeploy with Dockhand's safe defaults."""
+
+    async def start(request: web.Request) -> web.Response:
+        assert request.query == {"env": "7"}
+        assert request.headers["Accept"] == "application/json"
+        assert not await request.read()
+        return web.json_response({"success": True})
+
+    async def deploy(request: web.Request) -> web.Response:
+        assert request.query == {"env": "7"}
+        assert request.headers["Accept"] == "application/json"
+        assert await request.json() == {
+            "pull": True,
+            "build": False,
+            "forceRecreate": False,
+        }
+        return web.json_response({"success": True})
+
+    client = await _client_for(
+        aiohttp_server,
+        [
+            ("POST", "/api/stacks/website/start", start),
+            ("POST", "/api/stacks/website/deploy", deploy),
+        ],
+    )
+    try:
+        assert await client.stack_action("website", "start", 7) == {"success": True}
+        assert await client.stack_action("website", "redeploy", 7) == {"success": True}
+    finally:
+        await client.close()
+
+
+async def test_failed_stack_action_does_not_expose_upstream_error(
+    aiohttp_server: Any, socket_enabled: None
+) -> None:
+    """Compose job failures become sanitized API errors."""
+
+    async def failed(_request: web.Request) -> web.Response:
+        return web.json_response(
+            {"success": False, "error": "secret at /internal/compose.yaml"}
+        )
+
+    client = await _client_for(
+        aiohttp_server,
+        [("POST", "/api/stacks/website/stop", failed)],
+    )
+    try:
+        with pytest.raises(DockhandApiError) as raised:
+            await client.stack_action("website", "stop", 7)
+        assert "secret" not in str(raised.value)
+        assert "/internal" not in str(raised.value)
+    finally:
+        await client.close()
+
+
+@pytest.mark.parametrize(
+    ("stack_name", "action", "env_id"),
+    [
+        ("../secret", "start", 1),
+        ("website", "delete", 1),
+        ("website", "start", 0),
+    ],
+)
+async def test_invalid_stack_actions_are_rejected(
+    stack_name: str, action: str, env_id: int
+) -> None:
+    """Untrusted stack action inputs cannot alter API paths."""
+    client = DockhandApiClient("http://dockhand.invalid")
+    try:
+        with pytest.raises(DockhandApiError):
+            await client.stack_action(stack_name, action, env_id)
+    finally:
+        await client.close()
+
+
 async def test_injected_session_is_not_closed() -> None:
     """The HA-owned shared session remains open when the client is closed."""
     session = ClientSession()

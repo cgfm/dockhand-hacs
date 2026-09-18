@@ -1,4 +1,4 @@
-"""Button platform for Dockhand - container lifecycle actions."""
+"""Button platform for Dockhand lifecycle actions."""
 
 from __future__ import annotations
 
@@ -69,6 +69,33 @@ BUTTON_DESCRIPTIONS: tuple[DockhandButtonEntityDescription, ...] = (
     ),
 )
 
+STACK_BUTTON_DESCRIPTIONS: tuple[DockhandButtonEntityDescription, ...] = (
+    DockhandButtonEntityDescription(
+        key="start",
+        translation_key="start",
+        icon="mdi:play",
+        action="start",
+    ),
+    DockhandButtonEntityDescription(
+        key="stop",
+        translation_key="stop",
+        icon="mdi:stop",
+        action="stop",
+    ),
+    DockhandButtonEntityDescription(
+        key="restart",
+        translation_key="restart",
+        icon="mdi:restart",
+        action="restart",
+    ),
+    DockhandButtonEntityDescription(
+        key="redeploy",
+        translation_key="redeploy",
+        icon="mdi:rocket-launch-outline",
+        action="redeploy",
+    ),
+)
+
 ENVIRONMENT_CHECK_DESCRIPTION = DockhandButtonEntityDescription(
     key="check_image_updates",
     translation_key="check_image_updates",
@@ -107,16 +134,23 @@ async def async_setup_entry(
                 )
             )
 
+    for unique_key, stack_info in coordinator.data.get("stacks", {}).items():
+        for description in STACK_BUTTON_DESCRIPTIONS:
+            entities.append(
+                DockhandStackButton(coordinator, unique_key, stack_info, description)
+            )
+
     async_add_entities(entities)
 
     known_environment_keys: set[int] = set(
         coordinator.data.get("environments", {}).keys()
     )
     known_container_keys: set[str] = set(coordinator.data.get("containers", {}).keys())
+    known_stack_keys: set[str] = set(coordinator.data.get("stacks", {}).keys())
 
     @callback
     def _async_check_new_entities() -> None:
-        nonlocal known_environment_keys, known_container_keys
+        nonlocal known_environment_keys, known_container_keys, known_stack_keys
         new_entities: list[ButtonEntity] = []
 
         current_environment_keys = set(coordinator.data.get("environments", {}).keys())
@@ -145,6 +179,20 @@ async def async_setup_entry(
                 new_entities.append(
                     DockhandContainerButton(
                         coordinator, unique_key, container_info, description
+                    )
+                )
+
+        current_stack_keys = set(coordinator.data.get("stacks", {}).keys())
+        new_stack_keys = reconcile_resource_keys(
+            current_stack_keys,
+            known_stack_keys,
+        )
+        for unique_key in new_stack_keys:
+            stack_info = coordinator.data["stacks"][unique_key]
+            for description in STACK_BUTTON_DESCRIPTIONS:
+                new_entities.append(
+                    DockhandStackButton(
+                        coordinator, unique_key, stack_info, description
                     )
                 )
 
@@ -267,6 +315,108 @@ class DockhandContainerButton(
                 translation_placeholders={
                     "action": self.entity_description.action,
                     "container": container_name,
+                    "error": str(err),
+                },
+            ) from err
+
+
+class DockhandStackButton(
+    CoordinatorEntity[DockhandDataUpdateCoordinator], ButtonEntity
+):
+    """Button to trigger a Docker Compose stack action."""
+
+    _attr_has_entity_name = True
+    entity_description: DockhandButtonEntityDescription
+
+    def __init__(
+        self,
+        coordinator: DockhandDataUpdateCoordinator,
+        unique_key: str,
+        stack_info: dict[str, Any],
+        description: DockhandButtonEntityDescription,
+    ) -> None:
+        """Initialize the button."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._unique_key = unique_key
+        self._stack_name = str(
+            stack_info.get("name", f"Stack {stack_info.get('id', 'unknown')}")
+        )
+        self._env_id = stack_info.get("environment_id")
+
+        self._attr_unique_id = entity_unique_id(unique_key, description.key)
+        self._attr_device_info = _with_parent(
+            DeviceInfo(
+                identifiers={(DOMAIN, unique_key)},
+                name=self._stack_name,
+                manufacturer="Dockhand",
+                model="Docker Stack",
+            ),
+            stack_info.get("via_device_id"),
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return whether the action is valid for the current stack state."""
+        if not (
+            self.coordinator.last_update_success
+            and self._unique_key in self.coordinator.data.get("stacks", {})
+        ):
+            return False
+
+        stack = self.coordinator.data["stacks"][self._unique_key]
+        environment_id = stack.get("environment_id")
+        if not stack.get("name") or not (
+            isinstance(environment_id, int) and not isinstance(environment_id, bool)
+        ):
+            return False
+
+        action = self.entity_description.action
+        raw_status = stack.get("status")
+        if isinstance(raw_status, int) and not isinstance(raw_status, bool):
+            active = raw_status == 1 if raw_status in {1, 2} else None
+        else:
+            status = str(raw_status).lower() if raw_status is not None else ""
+            if status in {"active", "running", "up"}:
+                active = True
+            elif status in {"inactive", "stopped", "down"}:
+                active = False
+            else:
+                active = None
+
+        if action == "start":
+            return active is False
+        if action in {"stop", "restart"}:
+            return active is True
+        if action == "redeploy":
+            stack_type = str(stack.get("type", "")).lower()
+            return stack_type not in {"external", "untracked"}
+        return False
+
+    async def async_press(self) -> None:
+        """Handle the button press."""
+        stack = self.coordinator.data.get("stacks", {}).get(self._unique_key)
+        if not stack or not (stack_id := stack.get("name")):
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="stack_not_available",
+                translation_placeholders={"stack": self._stack_name},
+            )
+
+        stack_name = str(stack.get("name", self._stack_name))
+        environment_id = stack.get("environment_id", self._env_id)
+        try:
+            await self.coordinator.client.stack_action(
+                str(stack_id), self.entity_description.action, environment_id
+            )
+            await self.coordinator.async_request_refresh()
+        except DockhandApiError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="stack_action_failed",
+                translation_placeholders={
+                    "action": self.entity_description.action,
+                    "stack": stack_name,
                     "error": str(err),
                 },
             ) from err

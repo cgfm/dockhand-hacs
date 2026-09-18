@@ -73,6 +73,12 @@
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
     },
+    "stack_not_available": {
+      "message": "स्टैक {stack} उपलब्ध नहीं है"
+    },
+    "stack_action_failed": {
+      "message": "स्टैक {stack} पर {action} कार्रवाई विफल हुई: {error}"
+    },
     "image_update_not_available": {
       "message": "कंटेनर {container} के लिए कोई लंबित इमेज अपडेट उपलब्ध नहीं है"
     },
@@ -169,6 +175,9 @@
       },
       "restart": {
         "name": "पुनः आरंभ करें"
+      },
+      "redeploy": {
+        "name": "फिर से डिप्लॉय करें"
       },
       "update": {
         "name": "इमेज अपडेट करें"

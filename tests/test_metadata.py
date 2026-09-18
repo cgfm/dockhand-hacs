@@ -69,3 +69,34 @@ def test_yaml_and_json_metadata_parse() -> None:
     for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
         with path.open(encoding="utf-8") as file:
             assert isinstance(yaml.safe_load(file), dict), path.name
+
+
+def test_sections_card_grid_defaults_match_rendered_sizes() -> None:
+    """Custom cards advertise grid sizes that contain their rendered content."""
+    source = (INTEGRATION / "frontend" / "dockhand-cards.js").read_text(
+        encoding="utf-8"
+    )
+    overview_source, container_source = source.split("class DockhandContainerCard", 1)
+    overview_source = overview_source.split("class DockhandOverviewCard", 1)[1]
+    container_source, stack_source = container_source.split(
+        "class DockhandStackCard", 1
+    )
+    logs_source = (INTEGRATION / "frontend" / "dockhand-logs-card.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'return { columns: 12, rows: "auto", min_columns: 12 };' in overview_source
+    assert (
+        "return { columns: 12, rows: 6, min_columns: 12, min_rows: 6 };"
+        in container_source
+    )
+    assert (
+        "return { columns: 12, rows: 3, min_columns: 12, min_rows: 3 };" in stack_source
+    )
+    assert "columns: 12," in logs_source
+    assert "rows: this._open ? 6 : 2," in logs_source
+    assert "min_columns: 12," in logs_source
+    assert "min_rows: 2," in logs_source
+    for card_source in (container_source, stack_source):
+        assert ":host { height: 100%; }" in card_source
+        assert "ha-card { height: 100%; }" in card_source

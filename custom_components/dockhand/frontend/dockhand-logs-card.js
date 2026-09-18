@@ -237,7 +237,12 @@ class DockhandLogsCard extends HTMLElement {
   }
 
   getGridOptions() {
-    return { columns: 12, rows: this._open ? 6 : 2, min_rows: 2 };
+    return {
+      columns: 12,
+      rows: this._open ? 6 : 2,
+      min_columns: 12,
+      min_rows: 2,
+    };
   }
 
   openLogs() {

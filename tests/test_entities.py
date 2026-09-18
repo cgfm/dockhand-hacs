@@ -16,8 +16,10 @@ from custom_components.dockhand.binary_sensor import (
 )
 from custom_components.dockhand.button import (
     BUTTON_DESCRIPTIONS,
+    STACK_BUTTON_DESCRIPTIONS,
     DockhandContainerButton,
     DockhandEnvironmentCheckUpdatesButton,
+    DockhandStackButton,
 )
 from custom_components.dockhand.const import (
     DATA_IMAGE_UPDATE_STATUS,
@@ -45,6 +47,7 @@ def _coordinator() -> SimpleNamespace:
             base_url="https://dockhand.example",
             check_container_updates=AsyncMock(),
             container_action=AsyncMock(),
+            stack_action=AsyncMock(),
             update_container_image=AsyncMock(),
         ),
         data={
@@ -118,6 +121,20 @@ def _environment_button() -> DockhandEnvironmentCheckUpdatesButton:
     coordinator = _coordinator()
     return DockhandEnvironmentCheckUpdatesButton(
         coordinator, 1, coordinator.data["environments"][1]
+    )
+
+
+def _stack_button(action: str) -> DockhandStackButton:
+    """Create one stack button by action."""
+    coordinator = _coordinator()
+    description = next(
+        item for item in STACK_BUTTON_DESCRIPTIONS if item.action == action
+    )
+    return DockhandStackButton(
+        coordinator,
+        STACK_KEY,
+        coordinator.data["stacks"][STACK_KEY],
+        description,
     )
 
 
@@ -229,6 +246,26 @@ def test_button_availability_follows_container_state() -> None:
     assert not update.available
 
 
+def test_stack_button_availability_follows_stack_state_and_type() -> None:
+    """Stack actions are exposed only when Dockhand can perform them."""
+    assert not _stack_button("start").available
+    assert _stack_button("stop").available
+    assert _stack_button("restart").available
+    assert _stack_button("redeploy").available
+
+    start = _stack_button("start")
+    start.coordinator.data["stacks"][STACK_KEY]["status"] = 2
+    assert start.available
+
+    redeploy = _stack_button("redeploy")
+    redeploy.coordinator.data["stacks"][STACK_KEY]["type"] = "untracked"
+    assert not redeploy.available
+
+    unknown = _stack_button("stop")
+    unknown.coordinator.data["stacks"][STACK_KEY]["status"] = "unknown"
+    assert not unknown.available
+
+
 def test_image_update_sensor_reports_pending_metadata_and_device() -> None:
     """Pending Dockhand data produces an on sensor on the container device."""
     coordinator = _coordinator()
@@ -336,6 +373,46 @@ async def test_update_button_maps_api_failure_to_home_assistant_error() -> None:
 
     assert raised.value.translation_key == "container_action_failed"
     button.coordinator.async_request_refresh.assert_not_awaited()
+
+
+async def test_stack_button_calls_dockhand_then_refreshes() -> None:
+    """A stack action uses the current stack name and environment."""
+    button = _stack_button("restart")
+    button.coordinator.data["stacks"][STACK_KEY]["name"] = "website-next"
+
+    await button.async_press()
+
+    button.coordinator.client.stack_action.assert_awaited_once_with(
+        "website-next", "restart", 1
+    )
+    button.coordinator.async_request_refresh.assert_awaited_once()
+
+
+async def test_stack_button_maps_api_failure_to_home_assistant_error() -> None:
+    """Dockhand stack failures use the integration's translated HA error."""
+    button = _stack_button("redeploy")
+    button.coordinator.client.stack_action.side_effect = DockhandApiError(
+        "Redeploy failed"
+    )
+
+    with pytest.raises(HomeAssistantError) as raised:
+        await button.async_press()
+
+    assert raised.value.translation_key == "stack_action_failed"
+    button.coordinator.async_request_refresh.assert_not_awaited()
+
+
+async def test_stack_button_rejects_disappeared_stack() -> None:
+    """A stale stack entity cannot act on a missing coordinator resource."""
+    button = _stack_button("stop")
+    button.coordinator.data["stacks"].clear()
+
+    assert not button.available
+    with pytest.raises(HomeAssistantError) as raised:
+        await button.async_press()
+
+    assert raised.value.translation_key == "stack_not_available"
+    button.coordinator.client.stack_action.assert_not_awaited()
 
 
 async def test_environment_check_button_calls_dockhand_then_refreshes() -> None:

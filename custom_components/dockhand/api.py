@@ -40,6 +40,8 @@ class DockhandRateLimitError(DockhandApiError):
 
 _CONTAINER_ID = re.compile(r"^[0-9a-fA-F]{12,64}$")
 _CONTAINER_ACTIONS = frozenset({"start", "stop", "pause", "unpause", "restart"})
+_STACK_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+_STACK_ACTIONS = frozenset({"start", "stop", "restart", "redeploy"})
 _MAX_SSE_EVENT_CHARS = 1024 * 1024
 
 
@@ -55,6 +57,13 @@ def _validated_environment_id(env_id: int) -> int:
     if not isinstance(env_id, int) or isinstance(env_id, bool) or env_id < 1:
         raise DockhandApiError("Invalid Dockhand environment ID")
     return env_id
+
+
+def _validated_stack_name(stack_name: str) -> str:
+    """Return a validated Compose project name safe for a URL path."""
+    if not _STACK_NAME.fullmatch(stack_name):
+        raise DockhandApiError("Dockhand returned an invalid stack name")
+    return stack_name
 
 
 async def _iter_sse_events(
@@ -608,3 +617,30 @@ class DockhandApiClient:
         raise DockhandApiError(
             f"Unexpected stacks response type: {type(result).__name__}"
         )
+
+    async def stack_action(self, stack_name: str, action: str, env_id: int) -> Any:
+        """Perform a supported Compose stack lifecycle action."""
+        stack_name = _validated_stack_name(stack_name)
+        env_id = _validated_environment_id(env_id)
+        if action not in _STACK_ACTIONS:
+            raise DockhandApiError(f"Unsupported stack action: {action}")
+
+        endpoint = "deploy" if action == "redeploy" else action
+        json_data = (
+            {"pull": True, "build": False, "forceRecreate": False}
+            if action == "redeploy"
+            else None
+        )
+        result = await self._request(
+            "POST",
+            f"/stacks/{stack_name}/{endpoint}",
+            params={"env": str(env_id)},
+            json_data=json_data,
+            headers={"Accept": "application/json"},
+            request_timeout=self._action_timeout,
+        )
+        if isinstance(result, dict) and result.get("success") is False:
+            # Compose job errors can contain internal paths, hostnames, or secret
+            # values. Keep the upstream payload out of Home Assistant logs and UI.
+            raise DockhandApiError("Dockhand stack action failed")
+        return result

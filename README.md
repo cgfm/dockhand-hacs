@@ -94,11 +94,11 @@ Dockhand registers four cards automatically. After installing or updating the in
 
 All cards have a visual editor and are suggested under **Community** when a compatible Dockhand entity is selected. They resolve related entities through Home Assistant's device registry, so renamed entity IDs and recreated containers do not need hard-coded mappings.
 
-In a Sections view, the Container and Stack cards request six columns with automatic row height and do not allow a narrower resize. Their content is constrained to the assigned grid area; if a dashboard configuration explicitly gives them a fixed row count, excess vertical content scrolls inside the card instead of overlapping the following card.
+In a Sections view, all four Dockhand cards require the full 12-column section width. The Container Card defaults to **12 × 6**, the Stack Card to **12 × 3**, the Overview Card uses automatic height, and the standalone Logs Card switches between **12 × 2** (closed) and **12 × 6** (open). Container and Stack content is constrained to the assigned grid area, so excess vertical content scrolls inside the card instead of overlapping the following card. Existing dashboard configurations with explicit `grid_options` keep their configured size until changed in the dashboard editor.
 
 ### Dockhand Overview Card
 
-`custom:dockhand-overview-card` summarizes either the containers or the stacks of one Dockhand environment. In container mode it shows running/stopped/problem/update totals and **All**, **Problems** and **Updates** views. In stack mode it shows active/inactive/problem totals and **All** and **Problems** views. Container actions use the integration's existing guarded button entities; stop, restart and update require confirmation. The refresh icon invokes the environment's **Check image updates** button.
+`custom:dockhand-overview-card` summarizes either the containers or the stacks of one Dockhand environment. In container mode it shows running/stopped/problem/update totals and **All**, **Problems** and **Updates** views. In stack mode it shows active/inactive/problem totals and **All** and **Problems** views. Container and stack actions use guarded Home Assistant button entities; stop, restart, update and redeploy require confirmation. The refresh icon invokes the environment's **Check image updates** button.
 
 Choose any Dockhand environment sensor in the visual editor, or use YAML:
 
@@ -123,6 +123,7 @@ entity: sensor.dockhand_container_count
 resource_type: stacks
 default_view: all
 max_height: 360
+show_actions: true
 ```
 
 ### Dockhand Container Card
@@ -143,12 +144,13 @@ tail: 200
 
 ### Dockhand Stack Card
 
-`custom:dockhand-stack-card` displays stack state, total/running/stopped container counts and the names Dockhand reports for problem containers.
+`custom:dockhand-stack-card` displays stack state, total/running/stopped container counts and the names Dockhand reports for problem containers. It also offers the currently valid **Start**, **Stop**, **Restart** and **Redeploy** actions. Redeploy uses Dockhand's default image-pull behavior and asks for confirmation. Untracked/external stacks do not expose Redeploy because Dockhand has no managed Compose source for them.
 
 ```yaml
 type: custom:dockhand-stack-card
 entity: sensor.paperless_stack_status
 show_containers: true
+show_actions: true
 ```
 
 ### Dashboard card: live container logs

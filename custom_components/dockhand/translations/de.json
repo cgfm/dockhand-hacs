@@ -73,6 +73,12 @@
     "container_action_failed": {
       "message": "Aktion {action} für Container {container} fehlgeschlagen: {error}"
     },
+    "stack_not_available": {
+      "message": "Stack {stack} ist nicht verfügbar"
+    },
+    "stack_action_failed": {
+      "message": "Aktion {action} für Stack {stack} fehlgeschlagen: {error}"
+    },
     "image_update_not_available": {
       "message": "Für Container {container} ist kein ausstehendes Image-Update verfügbar"
     },
@@ -169,6 +175,9 @@
       },
       "restart": {
         "name": "Neustarten"
+      },
+      "redeploy": {
+        "name": "Neu bereitstellen"
       },
       "update": {
         "name": "Image aktualisieren"

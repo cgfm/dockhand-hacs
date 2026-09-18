@@ -73,6 +73,12 @@
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
     },
+    "stack_not_available": {
+      "message": "堆栈 {stack} 不可用"
+    },
+    "stack_action_failed": {
+      "message": "对堆栈 {stack} 执行 {action} 失败：{error}"
+    },
     "image_update_not_available": {
       "message": "容器 {container} 没有待处理的镜像更新"
     },
@@ -169,6 +175,9 @@
       },
       "restart": {
         "name": "重启"
+      },
+      "redeploy": {
+        "name": "重新部署"
       },
       "update": {
         "name": "更新镜像"

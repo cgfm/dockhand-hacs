@@ -73,6 +73,12 @@
     "container_action_failed": {
       "message": "Failed to {action} container {container}: {error}"
     },
+    "stack_not_available": {
+      "message": "المكدس {stack} غير متاح"
+    },
+    "stack_action_failed": {
+      "message": "فشل تنفيذ الإجراء {action} للمكدس {stack}: {error}"
+    },
     "image_update_not_available": {
       "message": "لا يتوفر تحديث صورة معلّق للحاوية {container}"
     },
@@ -169,6 +175,9 @@
       },
       "restart": {
         "name": "إعادة تشغيل"
+      },
+      "redeploy": {
+        "name": "إعادة النشر"
       },
       "update": {
         "name": "تحديث الصورة"

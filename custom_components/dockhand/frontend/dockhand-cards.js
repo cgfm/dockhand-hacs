@@ -38,6 +38,7 @@ const TEXT = {
     pause: "Pausieren",
     unpause: "Fortsetzen",
     restart: "Neu starten",
+    redeploy: "Neu bereitstellen",
     doUpdate: "Aktualisieren",
     active: "Aktiv",
     inactive: "Inaktiv",
@@ -76,6 +77,7 @@ const TEXT = {
     pause: "Pause",
     unpause: "Resume",
     restart: "Restart",
+    redeploy: "Redeploy",
     doUpdate: "Update",
     active: "Active",
     inactive: "Inactive",
@@ -162,6 +164,11 @@ const ACTIONS = {
   pause: { icon: "mdi:pause", label: "pause" },
   unpause: { icon: "mdi:play-pause", label: "unpause" },
   restart: { icon: "mdi:restart", label: "restart", confirm: true },
+  redeploy: {
+    icon: "mdi:rocket-launch-outline",
+    label: "redeploy",
+    confirm: true,
+  },
   update: { icon: "mdi:update", label: "doUpdate", confirm: true },
 };
 
@@ -444,7 +451,7 @@ class DockhandOverviewCard extends DockhandBaseCard {
           default_view: "Startansicht",
           max_height: "Maximale Listenhöhe",
           show_metrics: "Metriken anzeigen",
-          show_actions: "Container-Aktionen anzeigen",
+          show_actions: "Aktionen anzeigen",
           defaultViewHelp:
             "Updates ist nur im Container-Modus verfügbar.",
           maxHeightHelp:
@@ -458,7 +465,7 @@ class DockhandOverviewCard extends DockhandBaseCard {
           default_view: "Initial view",
           max_height: "Maximum list height",
           show_metrics: "Show metrics",
-          show_actions: "Show container actions",
+          show_actions: "Show actions",
           defaultViewHelp:
             "Updates is available only in container mode.",
           maxHeightHelp:
@@ -587,7 +594,7 @@ class DockhandOverviewCard extends DockhandBaseCard {
   }
 
   getGridOptions() {
-    return { columns: 12, rows: "auto", min_columns: 6 };
+    return { columns: 12, rows: "auto", min_columns: 12 };
   }
 
   _render() {
@@ -815,7 +822,9 @@ class DockhandOverviewCard extends DockhandBaseCard {
         createElement("span", "", `${formattedState(this._hass, stateForRole(this._hass, info.roles, "stack_stopped_count"))} ${this._t("stopped")}`),
       );
     }
-    row.append(metrics, createElement("div"));
+    row.append(metrics);
+    if (this._config.show_actions) row.append(this._actionButtons(info, true));
+    else row.append(createElement("div"));
     row.addEventListener("click", () =>
       this._moreInfo(primaryEntity(info.roles, ["stack_status", "stack_active"])),
     );
@@ -886,7 +895,7 @@ class DockhandContainerCard extends DockhandBaseCard {
   }
 
   getGridOptions() {
-    return { columns: 6, rows: "auto", min_columns: 6 };
+    return { columns: 12, rows: 6, min_columns: 12, min_rows: 6 };
   }
 
   _render() {
@@ -899,6 +908,8 @@ class DockhandContainerCard extends DockhandBaseCard {
     const oldLogCard = this._logCard;
 
     const style = createElement("style", "", `${COMMON_STYLE}
+      :host { height: 100%; }
+      ha-card { height: 100%; }
       .status { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 16px 12px; }
       .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-width: 0; padding: 12px 16px; border-top: 1px solid var(--divider-color); }
       .metric { min-width: 0; }
@@ -1027,6 +1038,7 @@ class DockhandStackCard extends DockhandBaseCard {
     return {
       entity: candidateEntity(hass, entities, entitiesFallback, MODELS.stack) || "",
       show_containers: true,
+      show_actions: true,
     };
   }
 
@@ -1036,16 +1048,20 @@ class DockhandStackCard extends DockhandBaseCard {
 
   setConfig(config) {
     if (!config?.entity) throw new Error("Define a Dockhand stack entity");
-    this._config = { ...config, show_containers: config.show_containers !== false };
+    this._config = {
+      ...config,
+      show_containers: config.show_containers !== false,
+      show_actions: config.show_actions !== false,
+    };
     this._queueRender();
   }
 
   getCardSize() {
-    return 3;
+    return this._config?.show_actions ? 4 : 3;
   }
 
   getGridOptions() {
-    return { columns: 6, rows: "auto", min_columns: 6 };
+    return { columns: 12, rows: 3, min_columns: 12, min_rows: 3 };
   }
 
   _render() {
@@ -1061,6 +1077,8 @@ class DockhandStackCard extends DockhandBaseCard {
     const affected = info.problem?.attributes?.problem_containers || [];
 
     const style = createElement("style", "", `${COMMON_STYLE}
+      :host { height: 100%; }
+      ha-card { height: 100%; }
       .status { padding: 0 16px 14px; }
       .counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); min-width: 0; border-top: 1px solid var(--divider-color); }
       .count { min-width: 0; padding: 13px 8px; text-align: center; overflow-wrap: anywhere; }
@@ -1069,6 +1087,7 @@ class DockhandStackCard extends DockhandBaseCard {
       .problems { min-width: 0; padding: 12px 16px 16px; border-top: 1px solid var(--divider-color); overflow: hidden; }
       .problems ul { margin: 7px 0 0; padding-left: 20px; }
       .problems li { overflow-wrap: anywhere; }
+      .actions { display: flex; align-items: center; gap: 2px; min-width: 0; padding: 8px 10px; border-top: 1px solid var(--divider-color); overflow-x: auto; scrollbar-width: thin; }
     `);
     const card = createElement("ha-card");
     const header = createElement("div", "header");
@@ -1116,6 +1135,7 @@ class DockhandStackCard extends DockhandBaseCard {
       problems.append(list);
       card.append(problems);
     }
+    if (this._config.show_actions) card.append(this._actionButtons(info));
     this.shadowRoot.replaceChildren(style, card);
   }
 
@@ -1184,7 +1204,15 @@ const detailConfigForm = (model, includeContainerOptions) => {
       },
     );
   } else {
-    schema.push({ name: "show_containers", selector: { boolean: {} } });
+    schema.push({
+      type: "grid",
+      name: "",
+      flatten: true,
+      schema: [
+        { name: "show_containers", selector: { boolean: {} } },
+        { name: "show_actions", selector: { boolean: {} } },
+      ],
+    });
   }
   return {
     schema,
@@ -1239,7 +1267,7 @@ registerCard("dockhand-container-card", DockhandContainerCard, {
 
 registerCard("dockhand-stack-card", DockhandStackCard, {
   name: "Dockhand Stack Card",
-  description: "Stack health and container counts.",
+  description: "Stack health, container counts, and lifecycle actions.",
   preview: true,
   documentationURL: `${DOCUMENTATION_BASE}#dockhand-stack-card`,
   getEntitySuggestion: (hass, entityId) =>

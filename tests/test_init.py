@@ -155,7 +155,7 @@ async def test_setup_reload_and_unload(hass: HomeAssistant) -> None:
         assert CARDS_FRONTEND_URL in frontend_resources
         assert (
             len(er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id))
-            == 29
+            == 33
         )
 
         assert await hass.config_entries.async_reload(entry.entry_id)
@@ -163,7 +163,7 @@ async def test_setup_reload_and_unload(hass: HomeAssistant) -> None:
         assert entry.state is ConfigEntryState.LOADED
         assert (
             len(er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id))
-            == 29
+            == 33
         )
 
         assert await hass.config_entries.async_unload(entry.entry_id)
@@ -182,7 +182,7 @@ async def test_refresh_adds_each_entity_once_across_temporary_gaps(
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         registry = er.async_get(hass)
-        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 29
+        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 33
 
         containers.return_value = [
             _container(RUNTIME_A, "/web", "example/web:1"),
@@ -190,7 +190,7 @@ async def test_refresh_adds_each_entity_once_across_temporary_gaps(
         ]
         await entry.runtime_data.async_refresh()
         await hass.async_block_till_done()
-        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 48
+        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 52
 
         containers.return_value = [_container(RUNTIME_B, "/worker", "example/worker:1")]
         await entry.runtime_data.async_refresh()
@@ -201,7 +201,7 @@ async def test_refresh_adds_each_entity_once_across_temporary_gaps(
         await entry.runtime_data.async_refresh()
         await hass.async_block_till_done()
 
-        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 48
+        assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 52
         assert await hass.config_entries.async_unload(entry.entry_id)
 
 
